@@ -1,0 +1,131 @@
+{
+  "projectType": "saas",
+  "projectName": "Maths Society Platform",
+  "projectDescription": "A comprehensive web application for school mathematics societies featuring interactive challenges, leaderboards, competitions, and educational content management.",
+  "theme": "maple",
+  "primaryColor": "#2E7D32",
+  "lightColor": "#66BB6A",
+  "darkColor": "#1B5E20",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/challenges",
+              "features/leaderboards",
+              "features/summer-competition",
+              "features/articles-newsletters",
+              "features/user-management"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/environment",
+              "configuration/database",
+              "configuration/security"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/database-models",
+              "architecture/blueprints",
+              "architecture/math-engine"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "deployment/production",
+              "deployment/migrations",
+              "deployment/monitoring"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Admin Guide",
+        "groups": [
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/user-management",
+              "admin/challenge-management",
+              "admin/competition-setup",
+              "admin/content-management"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Routes",
+            "pages": [
+              "api/auth",
+              "api/challenges",
+              "api/leaderboards",
+              "api/admin"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/user",
+              "api/models/challenge",
+              "api/models/submission",
+              "api/models/leaderboard"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/math-engine",
+              "api/utils/forms"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Interactive mathematical challenges with MathLive input",
+    "Multi-tiered competition system (regular and summer competitions)",
+    "Key stage separated leaderboards (KS3, KS4, KS5)",
+    "Advanced math expression evaluation engine with LaTeX support",
+    "School-based competition tracking",
+    "Content management for articles and newsletters",
+    "Admin dashboard for user and challenge management",
+    "Scheduled challenge releases with time-based locking",
+    "Real-time submission validation and scoring"
+  ],
+  "publicApiSurface": [
+    "User authentication (login, register, logout)",
+    "Challenge submission and validation",
+    "Leaderboard viewing (overall and summer competition)",
+    "Article and newsletter browsing",
+    "Profile management",
+    "Admin panel operations (user/challenge/article CRUD)",
+    "Mathematical expression comparison API",
+    "Health and readiness endpoints (/healthz, /readyz)"
+  ]
+}
