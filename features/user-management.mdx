@@ -214,9 +214,13 @@ Your `school_id` field:
 Regular users don't need school affiliation. It only becomes mandatory if you want to participate in the summer competition.
 </Note>
 
-## Profile Information Display
+## Profile Management
 
-Your profile shows:
+You can manage your account through the profile section:
+
+### Viewing Your Profile
+
+Access your profile at `/profile` to see:
 
 <CardGroup cols={2}>
   <Card title="Identity" icon="id-card">
@@ -235,6 +239,47 @@ Your profile shows:
     Submission history and leaderboard standings
   </Card>
 </CardGroup>
+
+### Changing Your Password
+
+You can update your password at `/profile/change_password`:
+
+<Steps>
+  <Step title="Enter Current Password">
+    Verify your identity with your current password
+  </Step>
+  
+  <Step title="Enter New Password">
+    Choose a strong new password
+  </Step>
+  
+  <Step title="Confirm New Password">
+    Re-enter the new password to confirm
+  </Step>
+</Steps>
+
+<Warning>
+After changing your password, you'll be logged out and need to log in again with the new password.
+</Warning>
+
+### Deleting Your Account
+
+You can permanently delete your account at `/profile/delete_account`:
+
+<Warning>
+**This action is permanent and cannot be undone!**
+
+Deleting your account will remove:
+- Your user profile and credentials
+- All challenge submissions
+- Leaderboard entries
+- Associated articles (if you're an author)
+</Warning>
+
+Account deletion is handled through cascade rules:
+- **Submissions**: Deleted automatically
+- **Articles**: Deleted if you're the author
+- **Leaderboard entries**: Removed from all key stages
 
 ## Account States and Access Control
 

@@ -514,50 +514,54 @@ graph LR
 
 **Purpose**: RESTful API for mathematical expression operations.
 
-**Location**: `app/math_api/`
+**Location**: `app/math_api.py`
 
-**Authentication**: Optional (rate-limited)
+**Authentication**: Required (admin only)
 
 ### Endpoints
 
-<ParamField path="/api/math/validate" type="POST">
-  **Validate mathematical expression**
+<ParamField path="/api/math/test-equivalence" type="POST">
+  **Test if two mathematical expressions are equivalent**
+  
+  **Authentication**: Required (admin only)
   
   **Request Body**:
   ```json
   {
-    "user_expression": "2*x + 3",
-    "correct_expression": "3 + 2*x"
+    "expr1": "2*x + 3",
+    "expr2": "3 + 2*x"
   }
   ```
   
   **Response**:
   ```json
   {
-    "is_equivalent": true,
-    "normalized_user": "2*x + 3",
-    "normalized_correct": "2*x + 3"
+    "equivalent": true,
+    "expr1": "2*x + 3",
+    "expr2": "3 + 2*x",
+    "expr1_normalized": "2*x + 3",
+    "expr2_normalized": "2*x + 3"
   }
   ```
-  
-  **Rate Limit**: 100 requests/hour
 </ParamField>
 
 <ParamField path="/api/math/normalize" type="POST">
   **Normalize expression to canonical form**
   
+  **Authentication**: Required (admin only)
+  
   **Request Body**:
   ```json
   {
-    "expression": "c\\left(a+b\\right)"
+    "expression": "2x + 3"
   }
   ```
   
   **Response**:
   ```json
   {
-    "normalized": "a*c + b*c",
-    "original": "c\\left(a+b\\right)"
+    "original": "2x + 3",
+    "normalized": "2*x + 3"
   }
   ```
 </ParamField>
@@ -577,7 +581,7 @@ See [Math Engine API Reference](/api/utils/math-engine) for complete documentati
 | `/<resource>/create` | `/admin/articles/create` | Create form |
 | `/<resource>/edit/<int:id>` | `/admin/challenges/edit/5` | Edit form |
 | `/<resource>/delete/<int:id>` | `/admin/users/delete/10` | Delete action |
-| `/api/<resource>/<action>` | `/api/math/validate` | API endpoint |
+| `/api/<resource>/<action>` | `/api/math/test-equivalence` | API endpoint |
 
 ### URL Generation
 
@@ -631,11 +635,13 @@ def admin_dashboard():
 ### Rate Limiting
 
 ```python
-from app import limiter
+from flask_login import login_required
+from app.math_api import admin_required
 
-@bp.route("/api/math/validate", methods=["POST"])
-@limiter.limit("100 per hour")
-def validate_expression():
+@math_api.route('/api/math/test-equivalence', methods=['POST'])
+@login_required
+@admin_required
+def test_expression_equivalence():
     pass
 ```
 
