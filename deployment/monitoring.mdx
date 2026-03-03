@@ -1,0 +1,446 @@
+---
+title: Monitoring and Logging
+description: Application monitoring, health checks, and logging configuration
+---
+
+Monitor your Maths Society Platform deployment with built-in health checks, structured logging, and observability features.
+
+## Health Check Endpoints
+
+Two health check endpoints are available for monitoring and orchestration tools.
+
+### Basic Health Check (`/healthz`)
+
+Lightweight endpoint that returns immediately without external dependencies:
+
+```bash
+curl http://localhost:8000/healthz
+```
+
+Response:
+```json
+{"status": "ok"}
+```
+
+HTTP Status: `200 OK`
+
+Reference: `app/__init__.py:61-63`
+
+<Info>
+  Use `/healthz` for load balancer health checks or liveness probes in Kubernetes.
+</Info>
+
+### Readiness Check (`/readyz`)
+
+Checks database connectivity to verify the application is ready to serve traffic:
+
+```bash
+curl http://localhost:8000/readyz
+```
+
+Responses:
+
+**Healthy (database accessible):**
+```json
+{"status": "ready"}
+```
+HTTP Status: `200 OK`
+
+**Degraded (database unavailable):**
+```json
+{"status": "degraded"}
+```
+HTTP Status: `503 Service Unavailable`
+
+Reference: `app/__init__.py:65-72`
+
+<Info>
+  Use `/readyz` for readiness probes in orchestration systems. The application should not receive traffic if this returns 503.
+</Info>
+
+### Implementation
+
+The readiness check performs a lightweight database query:
+
+```python
+@app.route('/readyz')
+def readyz():
+    try:
+        db.session.execute(text('SELECT 1'))
+        return {"status": "ready"}, 200
+    except Exception:
+        return {"status": "degraded"}, 503
+```
+
+## Logging Configuration
+
+### Environment-Based Logging
+
+Logging behavior is controlled by the `LOG_TO_STDOUT` environment variable:
+
+```env
+# Enable stdout logging (recommended for containers/cloud)
+LOG_TO_STDOUT=true
+
+# Disable stdout logging (uses file-based logging)
+LOG_TO_STDOUT=false
+```
+
+Reference: `config.py:16`
+
+### Stdout Logging (Production)
+
+When `LOG_TO_STDOUT=true`, logs are written to stdout at INFO level:
+
+```python
+if app.config.get("LOG_TO_STDOUT"):
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    app.logger.addHandler(stream_handler)
+```
+
+Reference: `app/__init__.py:182-185`
+
+<Info>
+  Stdout logging is recommended for:
+  - Docker/container deployments
+  - Cloud platforms (Heroku, AWS, GCP, Azure)
+  - Kubernetes/orchestrated environments
+  - Centralized logging systems
+</Info>
+
+### File-Based Logging (Development)
+
+When `LOG_TO_STDOUT=false`, logs are written to `app.log`:
+
+```python
+logging.basicConfig(
+    filename="app.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+```
+
+Reference: `app/__init__.py:187-192`
+
+### Gunicorn Logging
+
+Gunicorn has separate access and error logs:
+
+```python
+# gunicorn.conf.py
+accesslog = '-'  # stdout
+errorlog = '-'   # stderr
+loglevel = os.environ.get('GUNICORN_LOG_LEVEL', 'info')
+access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
+```
+
+Reference: `gunicorn.conf.py:31-34`
+
+Control log level via environment:
+
+```bash
+export GUNICORN_LOG_LEVEL=warning
+```
+
+### Access Log Format
+
+Gunicorn access logs include:
+- `%(h)s` - Remote address
+- `%(t)s` - Timestamp
+- `%(r)s` - Request line (method, path, protocol)
+- `%(s)s` - Status code
+- `%(b)s` - Response size
+- `%(D)s` - Request duration (microseconds)
+
+Example log entry:
+```
+192.168.1.1 - - [03/Mar/2026:14:32:10 +0000] "GET /healthz HTTP/1.1" 200 15 "-" "curl/7.68.0" 1523
+```
+
+## Monitoring Metrics
+
+### Worker Process Lifecycle
+
+Gunicorn logs worker lifecycle events:
+
+```python
+def when_ready(server):
+    server.log.info("Server is ready. Spawning workers")
+
+def post_worker_init(worker):
+    worker.log.info("Worker initialized (pid: %s)", worker.pid)
+
+def worker_abort(worker):
+    worker.log.info("worker received SIGABRT signal")
+```
+
+Reference: `gunicorn.conf.py:60-82`
+
+### Worker Restart Policy
+
+Workers automatically restart after handling requests to prevent memory leaks:
+
+```python
+max_requests = 1000
+max_requests_jitter = 100
+```
+
+Each worker restarts after 1000-1100 requests (with random jitter).
+
+Reference: `gunicorn.conf.py:27-28`
+
+## Monitoring Integration
+
+### Kubernetes Probes
+
+Example Kubernetes deployment with health checks:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mathsoc
+spec:
+  template:
+    spec:
+      containers:
+      - name: mathsoc
+        image: mathsoc:latest
+        ports:
+        - containerPort: 8000
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+```
+
+### Docker Health Check
+
+Add health check to Dockerfile:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/healthz || exit 1
+```
+
+### Uptime Monitoring
+
+Use external monitoring services to ping health endpoints:
+
+- **UptimeRobot**: Monitor `/healthz` every 5 minutes
+- **Pingdom**: HTTP check on `/healthz`
+- **StatusCake**: Monitor `/readyz` for database health
+- **Datadog**: Custom check using `/readyz`
+
+## Error Handling and Logging
+
+### Error Handlers
+
+Custom error handlers log exceptions and render templates:
+
+```python
+@app.errorhandler(500) 
+def internal_error(error):
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+```
+
+Reference: `app/__init__.py:78-81`
+
+### Request Logging
+
+Application logs include:
+- Request method and path
+- Response status code
+- Request duration
+- User IP address (via ProxyFix)
+- User agent
+
+### Database Query Logging
+
+Enable SQLAlchemy query logging for debugging:
+
+```python
+import logging
+logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+```
+
+<Warning>
+  Database query logging is verbose. Only enable in development or for short debugging sessions.
+</Warning>
+
+## Log Aggregation
+
+### Centralized Logging
+
+When using stdout logging, integrate with log aggregation services:
+
+<Steps>
+  <Step title="Docker with Fluentd">
+    Configure Docker logging driver:
+
+    ```yaml
+    # docker-compose.yml
+    services:
+      mathsoc:
+        logging:
+          driver: fluentd
+          options:
+            fluentd-address: localhost:24224
+            tag: mathsoc
+    ```
+  </Step>
+
+  <Step title="Kubernetes with Elasticsearch">
+    Logs automatically collected by node-level logging agents (Fluentd, Fluent Bit) and sent to Elasticsearch.
+  </Step>
+
+  <Step title="Cloud platforms">
+    - **AWS**: CloudWatch Logs
+    - **GCP**: Cloud Logging (Stackdriver)
+    - **Azure**: Application Insights
+    - **Heroku**: Logplex (automatically configured)
+  </Step>
+</Steps>
+
+### Structured Logging
+
+For better log parsing, consider structured logging with JSON:
+
+```python
+import logging
+import json
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        return json.dumps({
+            'timestamp': record.created,
+            'level': record.levelname,
+            'message': record.getMessage(),
+            'module': record.module,
+        })
+
+handler = logging.StreamHandler()
+handler.setFormatter(JsonFormatter())
+app.logger.addHandler(handler)
+```
+
+## Performance Monitoring
+
+### Application Performance Monitoring (APM)
+
+Integrate APM tools for detailed performance insights:
+
+- **New Relic**: Python agent for Flask
+- **Datadog APM**: Distributed tracing
+- **Sentry**: Error tracking and performance monitoring
+- **Elastic APM**: Open-source APM solution
+
+Example Sentry integration:
+
+```python
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+
+sentry_sdk.init(
+    dsn="your-sentry-dsn",
+    integrations=[FlaskIntegration()],
+    traces_sample_rate=0.1,
+)
+```
+
+### Custom Metrics
+
+Track custom application metrics:
+
+```python
+from prometheus_client import Counter, Histogram
+
+request_count = Counter('http_requests_total', 'Total HTTP requests')
+request_duration = Histogram('http_request_duration_seconds', 'HTTP request duration')
+
+@app.before_request
+def before_request():
+    request.start_time = time.time()
+
+@app.after_request
+def after_request(response):
+    request_duration.observe(time.time() - request.start_time)
+    request_count.inc()
+    return response
+```
+
+## Security Logging
+
+### Rate Limiting Events
+
+Flask-Limiter logs rate limit violations:
+
+```python
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+)
+```
+
+Reference: `app/__init__.py:21-26`
+
+Monitor logs for excessive rate limit hits, which may indicate:
+- Malicious activity
+- Misconfigured clients
+- Need to adjust limits
+
+### Authentication Failures
+
+Log failed login attempts for security monitoring:
+
+```python
+if not user or not user.check_password(password):
+    app.logger.warning(f'Failed login attempt for: {username} from {request.remote_addr}')
+```
+
+## Alerting
+
+Set up alerts based on monitoring data:
+
+<AccordionGroup>
+  <Accordion title="Health check failures">
+    Alert if `/readyz` returns 503 for more than 2 consecutive checks.
+  </Accordion>
+
+  <Accordion title="High error rate">
+    Alert if 5xx error rate exceeds 1% of total requests.
+  </Accordion>
+
+  <Accordion title="Worker restarts">
+    Alert if Gunicorn workers restart more than 10 times per hour.
+  </Accordion>
+
+  <Accordion title="Database connection errors">
+    Alert if database connection pool exhaustion occurs.
+  </Accordion>
+
+  <Accordion title="Disk space">
+    Alert if upload directory (`app/static/uploads/`) exceeds 80% capacity.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Production Deployment" icon="rocket" href="/deployment/production">
+    Review production deployment guide
+  </Card>
+  <Card title="Database Migrations" icon="database" href="/deployment/migrations">
+    Manage database schema changes
+  </Card>
+</CardGroup>

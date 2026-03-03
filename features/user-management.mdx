@@ -1,0 +1,335 @@
+---
+title: 'User Accounts & Profiles'
+description: 'Managing your account, profile settings, and competition participation'
+icon: 'user-gear'
+---
+
+## Overview
+
+The Maths Society Platform uses a comprehensive user account system that manages student profiles, competition participation, and access control. Your account determines what challenges you see, which leaderboards you're on, and how you interact with the platform.
+
+## Account Structure
+
+Each user account includes:
+
+<AccordionGroup>
+  <Accordion title="Personal Information">
+    - **Full Name**: Your display name across the platform
+    - **Email**: Unique identifier and login credential
+    - **Year**: Your current academic year
+    - **Maths Class**: Optional class/group identifier
+  </Accordion>
+  
+  <Accordion title="Academic Classification">
+    - **Key Stage**: KS3, KS4, or KS5
+    - Determines which challenges you see
+    - Places you on the correct leaderboard
+  </Accordion>
+  
+  <Accordion title="School Affiliation">
+    - **School ID**: Links you to your school (optional for regular users, required for summer competition)
+    - Used for summer competition school rankings
+  </Accordion>
+  
+  <Accordion title="Competition Status">
+    - **Regular User**: Access standard challenges and leaderboards
+    - **Summer Competition Participant**: Access time-limited competition challenges
+    - **Administrator**: Full access to all content and management tools
+  </Accordion>
+</AccordionGroup>
+
+## Account Types
+
+<CardGroup cols={3}>
+  <Card title="Regular Users" icon="user">
+    Students accessing standard platform challenges, articles, and leaderboards
+  </Card>
+  
+  <Card title="Competition Participants" icon="trophy">
+    Students registered for summer competition with school affiliation
+  </Card>
+  
+  <Card title="Administrators" icon="crown">
+    Staff with full platform access for content management and moderation
+  </Card>
+</CardGroup>
+
+## Key Stage Classification
+
+Your key stage is critical to your platform experience:
+
+### KS3 (Key Stage 3)
+- **Years**: 7-8
+- **Challenges**: Foundation-level mathematics
+- **Leaderboard**: Compete with other KS3 students
+- **Curriculum**: Early secondary mathematics
+
+### KS4 (Key Stage 4)
+- **Years**: 9-11
+- **Challenges**: GCSE-level problems
+- **Leaderboard**: Compete with other KS4 students
+- **Curriculum**: GCSE mathematics content
+
+### KS5 (Key Stage 5)
+- **Years**: 12-13
+- **Challenges**: A-Level and university prep
+- **Leaderboard**: Compete with other KS5 students
+- **Curriculum**: Advanced mathematics topics
+
+<Note>
+Your key stage determines which challenges appear to you and which leaderboard tracks your scores. You only compete with students at your academic level.
+</Note>
+
+## Regular vs. Competition Accounts
+
+### Regular User Experience
+
+**What you see:**
+- Regular challenges filtered by your key stage
+- Challenges that have been released (not future-scheduled)
+- Standard leaderboard with individual rankings
+- All articles and newsletters
+
+**How you participate:**
+- Complete challenges to earn points
+- Climb the key stage leaderboard
+- No school affiliation required
+- No time pressure on challenges
+
+### Summer Competition Experience
+
+**What you see:**
+- Summer competition challenges only (no regular challenges)
+- Time-limited challenges for your key stage
+- Both individual and school leaderboards
+- Competition-specific content
+
+**How you participate:**
+- Must be affiliated with a school
+- Complete challenges within time limits
+- Earn points for yourself and your school
+- Compete in both individual and school rankings
+
+<Warning>
+Summer competition participants cannot access regular challenges during the competition period. Your account type determines your platform experience.
+</Warning>
+
+## Administrator Accounts
+
+Administrators have special privileges:
+
+<AccordionGroup>
+  <Accordion title="Full Content Access">
+    - View all challenges (regular and summer)
+    - See unreleased and future-scheduled challenges
+    - Access challenges from all key stages
+  </Accordion>
+  
+  <Accordion title="Management Capabilities">
+    - Create, edit, and delete challenges
+    - Manage articles and newsletters
+    - Control user accounts
+    - Adjust leaderboard entries
+    - Lock/unlock challenges manually
+  </Accordion>
+  
+  <Accordion title="Preview and Testing">
+    - Submit answers to locked challenges
+    - Test challenges before public release
+    - View admin-only statistics and metrics
+  </Accordion>
+</AccordionGroup>
+
+## Security Features
+
+### Password Management
+
+Your account is protected by:
+- **Hashed Passwords**: Passwords are never stored in plain text
+- Werkzeug security implementation
+- Secure password verification on login
+
+### Authentication System
+
+The platform uses Flask-Login for:
+- Session management
+- Login state persistence
+- Secure route protection
+- Automatic logout on session expiry
+
+<Note>
+Never share your password with anyone. Administrators will never ask for your password.
+</Note>
+
+## User Relationships and Data
+
+### Submissions Tracking
+
+Your account maintains relationships with:
+- **Answer Submissions**: All your challenge attempts
+- **Leaderboard Entries**: Your scores in each key stage
+- **Summer Submissions**: Competition challenge attempts (if applicable)
+
+This data:
+- Persists across sessions
+- Enables submission history viewing
+- Powers leaderboard calculations
+- Tracks your progress over time
+
+### Content Authorship
+
+If you're an administrator:
+- Articles you create link to your user account
+- Establishes authorship and accountability
+- Enables filtering content by creator
+
+### Cascade Behavior
+
+If your account is deleted:
+- Submissions are removed (orphan prevention)
+- Leaderboard entries are deleted
+- Authored articles remain but lose author relationship
+
+This ensures database integrity while preserving valuable content.
+
+## School Affiliation
+
+### School Model
+
+Schools in the platform have:
+- **Name**: Official school name
+- **Email Domain**: For email-based registration validation
+- **Address**: Physical location
+- **Date Joined**: When school was added to platform
+
+### User-School Relationship
+
+Your `school_id` field:
+- Links you to your school (optional for regular users)
+- **Required** for summer competition participation
+- Enables school leaderboard calculations
+- Groups students for team statistics
+
+<Note>
+Regular users don't need school affiliation. It only becomes mandatory if you want to participate in the summer competition.
+</Note>
+
+## Profile Information Display
+
+Your profile shows:
+
+<CardGroup cols={2}>
+  <Card title="Identity" icon="id-card">
+    Full name and email address
+  </Card>
+  
+  <Card title="Academic Info" icon="school">
+    Year, key stage, and maths class
+  </Card>
+  
+  <Card title="School" icon="building">
+    School name (if affiliated)
+  </Card>
+  
+  <Card title="Activity" icon="chart-line">
+    Submission history and leaderboard standings
+  </Card>
+</CardGroup>
+
+## Account States and Access Control
+
+### Challenge Access Logic
+
+<Steps>
+  <Step title="Authentication Check">
+    Must be logged in to view challenges page
+  </Step>
+  
+  <Step title="Account Type Detection">
+    System checks if you're a competition participant or regular user
+  </Step>
+  
+  <Step title="Content Filtering">
+    - **Regular users**: See released regular challenges for their key stage
+    - **Competition participants**: See summer challenges for their key stage
+    - **Admins**: See everything including unreleased content
+  </Step>
+  
+  <Step title="Submission Permissions">
+    Can only submit answers if challenge is unlocked and appropriate for your account type
+  </Step>
+</Steps>
+
+### Homepage Personalization
+
+When you visit the homepage:
+- **Authenticated Users**: See challenges filtered by account type and key stage
+- **Competition Participants**: See recent summer challenges only
+- **Regular Users**: See recent regular challenges only
+- **Unauthenticated**: See generic content or login prompt
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Information Current">
+    Update your year and key stage when you progress to ensure you see appropriate challenges.
+  </Accordion>
+  
+  <Accordion title="Use a Valid Email">
+    Your email is your primary identifier and used for important communications.
+  </Accordion>
+  
+  <Accordion title="Choose Appropriate Account Type">
+    Decide whether you want regular participation or summer competition before registering.
+  </Accordion>
+  
+  <Accordion title="Understand Your Key Stage">
+    Know which key stage you're in to understand the difficulty level of your challenges.
+  </Accordion>
+</AccordionGroup>
+
+## Database Indexing and Performance
+
+Your user account benefits from optimized database queries:
+
+- **Full Name**: Indexed for fast search
+- **Email**: Unique index for login performance
+- **Key Stage**: Indexed for challenge filtering
+- **School ID**: Indexed for school queries
+
+This ensures fast page loads even with many users on the platform.
+
+## Multi-Key-Stage Support
+
+The platform supports users having leaderboard entries in multiple key stages:
+- If you change key stage, old entries persist
+- Useful for tracking progress over years
+- Each key stage maintains separate leaderboard entry
+- Historical scores preserved
+
+## User Representation
+
+In database and logs, users are represented as:
+```
+<User Full Name (key_stage)>
+```
+
+For example: `<User Alice Smith (KS4)>`
+
+This provides clear identification in administrative tools.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Start Solving Challenges" icon="puzzle-piece" href="/features/challenges">
+    Use your account to attempt mathematical challenges
+  </Card>
+  
+  <Card title="Check Your Ranking" icon="ranking-star" href="/features/leaderboards">
+    See your position on the key stage leaderboard
+  </Card>
+  
+  <Card title="Join Summer Competition" icon="sun" href="/features/summer-competition">
+    Learn about competitive mode with school teams
+  </Card>
+</CardGroup>

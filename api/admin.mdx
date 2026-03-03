@@ -1,0 +1,604 @@
+---
+title: 'Admin Routes'
+description: 'Administrative CRUD operations for challenges, users, articles, and leaderboards'
+---
+
+## Overview
+
+Admin routes provide full CRUD operations for managing the application. All routes require authentication and admin privileges.
+
+**Security:** All admin routes protected by:
+```python
+@login_required
+@admin_required
+```
+
+---
+
+## Admin Dashboard
+
+<ParamField path="/admin" type="GET">
+  Display admin dashboard with statistics
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/admin")
+@login_required
+@admin_required
+```
+
+**Returns:**
+- `total_challenges`: All challenges count
+- `released_challenges`: Challenges with `release_at <= now`
+- `unreleased_challenges`: Challenges with `release_at > now`
+- `total_users`: User count
+- `total_articles`: Article count
+
+---
+
+## Challenge Management
+
+### Create Challenge
+
+<ParamField path="/admin/challenges/create" type="GET | POST">
+  Create a new challenge with answer boxes
+</ParamField>
+
+**Form Fields:**
+
+<ParamField body="title" type="string" required>
+  Challenge title
+</ParamField>
+
+<ParamField body="content" type="text" required>
+  Challenge content (supports CKEditor rich text)
+</ParamField>
+
+<ParamField body="key_stage" type="string" required>
+  Target key stage: KS3, KS4, or KS5
+</ParamField>
+
+<ParamField body="release_at" type="datetime">
+  Scheduled release time (defaults to now if not specified)
+</ParamField>
+
+<ParamField body="lock_after_hours" type="integer">
+  Hours after release_at to automatically lock challenge
+</ParamField>
+
+<ParamField body="image" type="file">
+  Challenge image/diagram (jpg, png, gif)
+</ParamField>
+
+<ParamField body="answer_boxes" type="array" required>
+  Array of answer boxes, each with:
+  - `box_label`: Label for the answer box (e.g., "Part A")
+  - `correct_answer`: The correct answer string
+  - `order`: Display order (integer)
+</ParamField>
+
+**Process:**
+1. Creates challenge folder at `uploads/challenge_{YYYY-MM-DD}/`
+2. Saves uploaded image to challenge folder
+3. Creates `Challenge` record with `date_posted=now()`
+4. Creates `ChallengeAnswerBox` records for each answer box
+5. Commits transaction
+
+**Returns:** Redirects to `admin.manage_challenges` with success message
+
+---
+
+### Edit Challenge
+
+<ParamField path="/admin/challenges/edit/:challenge_id" type="GET | POST">
+  Edit existing challenge and answer boxes
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="challenge_id" type="integer" required>
+  ID of challenge to edit
+</ParamField>
+
+**Form Fields:** Same as create challenge
+
+**Answer Box Updates:**
+- Existing boxes updated in place
+- New boxes created if form has more entries than existing
+- Unused boxes deleted (only if no submissions exist)
+- Boxes with submissions are preserved for data integrity
+
+**Returns:** Redirects to `admin.manage_challenges`
+
+---
+
+### Delete Challenge
+
+<ParamField path="/admin/challenges/delete/:challenge_id" type="GET">
+  Delete challenge, submissions, and files
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="challenge_id" type="integer" required>
+  ID of challenge to delete
+</ParamField>
+
+**Process:**
+1. Deletes challenge image file if exists
+2. Removes challenge folder if empty
+3. Deletes all `AnswerSubmission` records
+4. Deletes `Challenge` record (cascades to answer boxes)
+5. Commits transaction
+
+**Returns:** Redirects to `admin.manage_challenges`
+
+---
+
+### Toggle Challenge Lock
+
+<ParamField path="/admin/challenges/toggle_lock/:challenge_id" type="POST">
+  Manually lock/unlock a challenge
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="challenge_id" type="integer" required>
+  ID of challenge to toggle
+</ParamField>
+
+**Behavior:**
+- Toggles `is_manually_locked` field
+- When locked: Answers revealed, no new submissions
+- When unlocked: Students can submit again
+
+**Returns:** Redirects to `admin.manage_challenges` with status message
+
+---
+
+### List Challenges
+
+<ParamField path="/admin/challenges" type="GET">
+  List all challenges (released and unreleased)
+</ParamField>
+
+**Returns:**
+- `released_challenges`: Challenges with `release_at <= now`, ordered by `date_posted` desc
+- `unreleased_challenges`: Challenges with `release_at > now`, ordered by `release_at` asc
+
+---
+
+## User Management
+
+### List Users
+
+<ParamField path="/admin/manage_users" type="GET">
+  Enhanced user management with search, filtering, pagination
+</ParamField>
+
+**Query Parameters:**
+
+<ParamField query="page" type="integer" default="1">
+  Page number
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="25">
+  Users per page (max 100)
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search by name, email, class, or user ID
+</ParamField>
+
+<ParamField query="key_stage" type="string">
+  Filter by key stage (ks3, ks4, ks5, or 'all')
+</ParamField>
+
+<ParamField query="year" type="string">
+  Filter by year (7-13 or 'all')
+</ParamField>
+
+<ParamField query="user_type" type="string">
+  Filter by type: 'competition', 'regular', or 'all'
+</ParamField>
+
+<ParamField query="admin_status" type="string">
+  Filter by admin status: 'admin', 'user', or 'all'
+</ParamField>
+
+**Returns:** Paginated user list with statistics
+
+---
+
+### Create User
+
+<ParamField path="/admin/manage_users/create" type="GET | POST">
+  Create a new user account
+</ParamField>
+
+**Form Fields:**
+
+<ParamField body="first_name" type="string" required>
+  User's first name (no spaces)
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  User's last name (no spaces)
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Unique email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Password (will be hashed)
+</ParamField>
+
+<ParamField body="year" type="string" required>
+  School year (7-13)
+</ParamField>
+
+<ParamField body="maths_class" type="string">
+  Maths class (not used for competition participants)
+</ParamField>
+
+<ParamField body="is_admin" type="boolean" default="false">
+  Grant admin privileges
+</ParamField>
+
+<ParamField body="is_competition_participant" type="boolean" default="false">
+  Mark as competition participant
+</ParamField>
+
+<ParamField body="school_id" type="integer">
+  School ID (required if is_competition_participant=true)
+</ParamField>
+
+**Validation:**
+- Email must be unique
+- No whitespace in names
+- Competition participants must have school_id
+- Key stage auto-calculated from year
+
+**Returns:** Redirects to `admin.manage_users`
+
+---
+
+### Edit User
+
+<ParamField path="/admin/manage_users/edit/:user_id" type="GET | POST">
+  Edit existing user account
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="user_id" type="integer" required>
+  ID of user to edit
+</ParamField>
+
+**Form Fields:** Same as create user (except password)
+
+**Returns:** Redirects to `admin.manage_users`
+
+---
+
+### Delete User
+
+<ParamField path="/admin/manage_users/delete/:user_id" type="GET">
+  Delete user and all associated data
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="user_id" type="integer" required>
+  ID of user to delete
+</ParamField>
+
+**Safety:**
+- Cannot delete your own account
+- Cascades deletion to:
+  - `LeaderboardEntry`
+  - `Article` (authored by user)
+  - `AnswerSubmission`
+  - `SummerLeaderboard`
+  - `SummerSubmission`
+
+**Returns:** Redirects to `admin.manage_users`
+
+---
+
+### Toggle Admin Status
+
+<ParamField path="/admin/toggle_admin/:user_id" type="GET">
+  Toggle admin privileges for user
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="user_id" type="integer" required>
+  ID of user to toggle
+</ParamField>
+
+**Returns:** Redirects to `admin.manage_users` with message
+
+---
+
+### Reset Password
+
+<ParamField path="/admin/manage_users/reset_password/:user_id" type="GET">
+  Reset user's password to random string
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="user_id" type="integer" required>
+  ID of user
+</ParamField>
+
+**Behavior:**
+- Generates 10-character random password
+- Hashes and saves to database
+- Displays new password to admin (shown once)
+
+**Returns:** Redirects to `admin.manage_users` with password in flash message
+
+---
+
+### User Search (AJAX)
+
+<ParamField path="/admin/users/search" type="GET">
+  Dynamic user search endpoint for AJAX
+</ParamField>
+
+**Query Parameters:**
+
+<ParamField query="q" type="string" required>
+  Search query (min 2 characters, or 1 if numeric)
+</ParamField>
+
+<ParamField query="limit" type="integer" default="10">
+  Max results (capped at 50)
+</ParamField>
+
+**Returns:** JSON array of users with:
+- `id`, `full_name`, `email`, `maths_class`
+- `key_stage`, `year`
+- `is_admin`, `is_competition_participant`
+- `date_joined`
+
+---
+
+### Bulk User Actions
+
+<ParamField path="/admin/users/bulk-action" type="POST">
+  Perform bulk actions on multiple users
+</ParamField>
+
+**Request Body:**
+
+<ParamField body="action" type="string" required>
+  Action to perform: 'promote_admin', 'demote_admin', 'mark_competition', 'unmark_competition', 'delete'
+</ParamField>
+
+<ParamField body="user_ids" type="array" required>
+  Array of user IDs to modify
+</ParamField>
+
+**Safety:**
+- Cannot demote yourself from admin
+- Cannot delete yourself
+- Actions only affect specified users
+
+**Returns:** JSON response with success/failure status
+
+---
+
+## Article Management
+
+### Create Article
+
+<ParamField path="/admin/articles/create" type="GET | POST">
+  Create article or newsletter
+</ParamField>
+
+**Form Fields:**
+
+<ParamField body="title" type="string" required>
+  Article title
+</ParamField>
+
+<ParamField body="content" type="text" required>
+  Article content (CKEditor rich text)
+</ParamField>
+
+<ParamField body="author" type="string" required>
+  Author name (named_creator field)
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Type: 'article' or 'newsletter'
+</ParamField>
+
+<ParamField body="file" type="file">
+  PDF file (for newsletters only)
+</ParamField>
+
+**Process:**
+- Saves PDF to `uploads/newsletters/newsletter_{YYYY_MM}_{filename}`
+- Creates `Article` record with `user_id=current_user.id`
+- Sets `date_posted=now()`
+
+**Returns:** Redirects to `admin.manage_articles`
+
+---
+
+### Edit Article
+
+<ParamField path="/admin/articles/edit/:article_id" type="GET | POST">
+  Edit existing article or newsletter
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="article_id" type="integer" required>
+  ID of article to edit
+</ParamField>
+
+**Form Fields:** Same as create article
+
+**File Handling:**
+- New file upload replaces existing file
+- Old file deleted from filesystem
+
+**Returns:** Redirects to `admin.manage_articles`
+
+---
+
+### Delete Article
+
+<ParamField path="/admin/articles/delete/:article_id" type="GET">
+  Delete article and associated files
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="article_id" type="integer" required>
+  ID of article to delete
+</ParamField>
+
+**Process:**
+1. Deletes PDF file if exists
+2. Deletes `Article` record
+3. Commits transaction
+
+**Returns:** Redirects to `admin.manage_articles`
+
+---
+
+### List Articles
+
+<ParamField path="/admin/articles" type="GET">
+  List all articles and newsletters
+</ParamField>
+
+**Returns:** All articles ordered by `date_posted` descending
+
+---
+
+## Leaderboard Management
+
+### List Leaderboard
+
+<ParamField path="/admin/manage_leaderboard" type="GET">
+  View leaderboard with key stage statistics
+</ParamField>
+
+**Returns:**
+- All leaderboard entries ordered by key stage then score
+- Statistics: total entries, unique participants, highest/average scores
+- Counts per key stage (KS3, KS4, KS5)
+
+---
+
+### Create Leaderboard Entry
+
+<ParamField path="/admin/leaderboard/create" type="GET | POST">
+  Create new leaderboard entry
+</ParamField>
+
+**Form Fields:**
+
+<ParamField body="user_id" type="integer" required>
+  User ID (dropdown selection)
+</ParamField>
+
+<ParamField body="score" type="integer" required>
+  Initial score
+</ParamField>
+
+<ParamField body="key_stage" type="string" required>
+  Key stage: KS3, KS4, or KS5
+</ParamField>
+
+**Validation:**
+- User can only have one entry per key stage
+- Duplicate user+key_stage combination rejected
+
+**Returns:** Redirects to `admin.manage_leaderboard`
+
+---
+
+### Edit Leaderboard Entry
+
+<ParamField path="/admin/leaderboard/edit/:entry_id" type="GET | POST">
+  Edit existing leaderboard entry
+</ParamField>
+
+**Path Parameters:**
+
+<ParamField path="entry_id" type="integer" required>
+  ID of leaderboard entry
+</ParamField>
+
+**Form Fields:** Same as create entry
+
+**Validation:**
+- Prevents duplicate user+key_stage combinations
+- Updates `last_updated` timestamp
+
+**Returns:** Redirects to `admin.manage_leaderboard`
+
+---
+
+### Export Leaderboard
+
+<ParamField path="/admin/leaderboard/export" type="GET">
+  Export leaderboard to CSV
+</ParamField>
+
+**CSV Columns:**
+- User ID
+- Name
+- Year
+- Class
+- Key Stage
+- Score
+- Last Updated
+
+**Returns:** `leaderboard_export.csv` file download
+
+---
+
+## File Upload
+
+### CKEditor Upload
+
+<ParamField path="/admin/upload" type="POST">
+  Handle image uploads for CKEditor
+</ParamField>
+
+**Form Fields:**
+
+<ParamField body="upload" type="file" required>
+  Image file (jpg, jpeg, png, gif only)
+</ParamField>
+
+**Process:**
+- Validates file extension
+- Saves to `uploads/` folder with secure filename
+- Returns direct URL for CKEditor
+
+**Returns:** JSON response with file URL or error message
+
+---
+
+## Math Engine Tester
+
+<ParamField path="/admin/math-engine-tester" type="GET">
+  Web interface for testing math expression equivalence
+</ParamField>
+
+**Purpose:** Allows admins to test mathematical expression normalization and equivalence checking before creating answer boxes.
+
+**Returns:** Rendered `admin/math_engine_tester.html` template

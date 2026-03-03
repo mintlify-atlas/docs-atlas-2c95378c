@@ -1,0 +1,243 @@
+---
+title: 'Leaderboard Routes'
+description: 'Leaderboard viewing and statistics endpoints'
+---
+
+## Overview
+
+Leaderboard routes display rankings for regular and autumn competition participants, separated by key stage.
+
+---
+
+## Regular Leaderboard
+
+<ParamField path="/leaderboard" type="GET">
+  Display leaderboards separated by key stages
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/leaderboard")
+```
+
+**Authentication:** None required
+
+**Response Data:**
+
+<ResponseField name="ks3_entries" type="array">
+  Top 20 KS3 (Years 7-8) leaderboard entries, ordered by score descending
+</ResponseField>
+
+<ResponseField name="ks4_entries" type="array">
+  Top 20 KS4 (Years 9-11) leaderboard entries, ordered by score descending
+</ResponseField>
+
+<ResponseField name="ks5_entries" type="array">
+  Top 20 KS5 (Years 12-13) leaderboard entries, ordered by score descending
+</ResponseField>
+
+<ResponseField name="recent_activity" type="array">
+  Last 15 activities including:
+  - Challenge completions (with challenge title)
+  - Points awarded events
+  - Timestamps for each activity
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  Competition statistics:
+  - `ks3_participants`: Number of KS3 participants
+  - `ks4_participants`: Number of KS4 participants
+  - `ks5_participants`: Number of KS5 participants
+  - `total_points_awarded`: Sum of all points
+  - `total_challenges`: Total challenge count
+  - `total_submissions`: Total submission count
+</ResponseField>
+
+**Data Sources:**
+- Leaderboard entries from `LeaderboardEntry` model
+- Recent submissions from `AnswerSubmission` (correct answers only)
+- Key stage filtering using lowercase comparison (`'ks3'`, `'ks4'`, `'ks5'`)
+
+**Returns:** Rendered `main/leaderboard.html` template
+
+---
+
+## Autumn Competition Leaderboard
+
+<ParamField path="/autumn_leaderboard" type="GET">
+  Display autumn competition leaderboards by key stage with school rankings
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/autumn_leaderboard")
+```
+
+**Authentication:** None required
+
+**Response Data:**
+
+### Individual Rankings
+
+<ResponseField name="ks3_leaders" type="array">
+  Top 15 KS3 individual leaders with:
+  - User details (name, year, school)
+  - Current score
+  - School affiliation
+</ResponseField>
+
+<ResponseField name="ks4_leaders" type="array">
+  Top 15 KS4 individual leaders
+</ResponseField>
+
+<ResponseField name="ks5_leaders" type="array">
+  Top 15 KS5 individual leaders
+</ResponseField>
+
+### School Rankings
+
+<ResponseField name="ks3_school_leaders" type="array">
+  Top 8 KS3 schools with:
+  - `id`: School ID
+  - `name`: School name
+  - `total_score`: Sum of all student scores
+  - `participant_count`: Number of students from school
+  - `average_score`: Average score per student
+</ResponseField>
+
+<ResponseField name="ks4_school_leaders" type="array">
+  Top 8 KS4 schools (same structure)
+</ResponseField>
+
+<ResponseField name="ks5_school_leaders" type="array">
+  Top 8 KS5 schools (same structure)
+</ResponseField>
+
+### Activity Feed
+
+<ResponseField name="recent_activity" type="array">
+  Last 15 correct submissions with points awarded:
+  - User name
+  - School name
+  - Challenge title
+  - Points awarded
+  - Submission timestamp
+</ResponseField>
+
+### Competition Statistics
+
+<ResponseField name="stats" type="object">
+  Autumn competition metrics:
+  - `ks3_participants`: KS3 participant count
+  - `ks4_participants`: KS4 participant count
+  - `ks5_participants`: KS5 participant count
+  - `total_participants`: All participants
+  - `total_schools`: Number of participating schools
+  - `total_submissions`: All submissions
+  - `correct_submissions`: Correct submissions only
+  - `total_points_awarded`: Sum of all points
+  - `active_challenges`: Number of unlocked challenges
+</ResponseField>
+
+**Data Sources:**
+- Individual leaders from `SummerLeaderboard` joined with `User` and `School`
+- School rankings aggregated using SQLAlchemy `func.sum()`, `func.count()`, `func.avg()`
+- Recent activity from `SummerSubmission` (where `is_correct=True` and `points_awarded > 0`)
+- Key stage filtering using uppercase (`'KS3'`, `'KS4'`, `'KS5'`)
+
+**Returns:** Rendered `main/summer_leaderboard.html` template
+
+---
+
+## Leaderboard Update Logic
+
+### Regular Competition
+
+**Function:** `update_leaderboard(user_id, score, challenge_key_stage)`
+
+Updates user's points for specific challenge key stage:
+
+<ParamField path="user_id" type="integer" required>
+  ID of the user to update
+</ParamField>
+
+<ParamField path="score" type="integer" required>
+  Points to add to user's total
+</ParamField>
+
+<ParamField path="challenge_key_stage" type="string" required>
+  Key stage of completed challenge (KS3/KS4/KS5)
+</ParamField>
+
+**Behavior:**
+1. Looks for existing `LeaderboardEntry` for user + key stage
+2. If exists: Adds score to existing total
+3. If new: Creates entry with initial score
+4. Updates `last_updated` timestamp to current time
+
+### Autumn Competition
+
+**Function:** `update_summer_leaderboard(user_id, school_id, points)`
+
+Updates summer leaderboard and school rankings:
+
+<ParamField path="user_id" type="integer" required>
+  ID of the user
+</ParamField>
+
+<ParamField path="school_id" type="integer" required>
+  ID of user's school
+</ParamField>
+
+<ParamField path="points" type="integer" required>
+  Points to add (1 or 3)
+</ParamField>
+
+**Behavior:**
+1. Finds `SummerLeaderboard` entry by user + school
+2. Adds points to existing score or creates new entry
+3. Updates `last_updated` timestamp
+4. School rankings automatically recalculated on next view
+
+---
+
+## Point Distribution
+
+### Regular Challenges
+- **First to complete all boxes:** 3 points
+- **Subsequent completions:** 1 point
+- **Partial completion:** 0 points (no credit until all boxes correct)
+
+### Summer Challenges
+- **First to complete entire challenge:** 3 points
+- **Everyone else who completes:** 1 point
+- **Partial answers:** 0 points (encouragement message only)
+
+---
+
+## Recent Activity Tracking
+
+Both leaderboards show recent activity feed:
+
+**Regular Leaderboard:**
+- Sources from `AnswerSubmission` (correct answers)
+- Joins with `User`, `ChallengeAnswerBox`, `Challenge`
+- Sorted by `submitted_at` descending
+- Limit: 10 submissions
+
+**Summer Leaderboard:**
+- Sources from `SummerSubmission` where `points_awarded > 0`
+- Joins with `User`, `SummerChallenge`, `School`
+- Sorted by `submitted_at` descending
+- Limit: 15 submissions with points
+
+---
+
+## Key Stage Filtering Differences
+
+**Important:** Key stage filtering uses different cases:
+
+- **Regular leaderboard:** Lowercase (`'ks3'`, `'ks4'`, `'ks5'`)
+- **Summer leaderboard:** Uppercase (`'KS3'`, `'KS4'`, `'KS5'`)
+
+This is based on how the data is stored in each respective model.

@@ -1,0 +1,333 @@
+---
+title: Production Deployment
+description: Guide to deploying the Maths Society Platform to production
+---
+
+This guide covers deploying the Maths Society Platform to a production environment using Gunicorn as the WSGI server.
+
+## Prerequisites
+
+Before deploying to production, ensure you have:
+
+- Python 3.8 or higher
+- PostgreSQL database (recommended) or SQLite
+- Access to your production server
+- Domain name configured (optional but recommended)
+
+## Environment Configuration
+
+<Steps>
+  <Step title="Create environment file">
+    Create a `.env` file in your project root with production settings:
+
+    ```env
+    # Required: Strong secret key for session management
+    SECRET_KEY=your-strong-random-secret-key-here
+
+    # Environment detection (any of these marks production)
+    FLASK_ENV=production
+    APP_ENVIRONMENT=production
+    ENV=prod
+
+    # Database configuration
+    DATABASE_URL=postgresql://user:password@host:5432/dbname
+    # Or use individual settings:
+    DATABASE_TYPE=postgresql
+    DB_USERNAME=postgres
+    DB_PASSWORD=your-db-password
+    DB_HOST=localhost
+    DB_NAME=mathsoc
+
+    # Logging (enable stdout for container/cloud platforms)
+    LOG_TO_STDOUT=true
+
+    # Gunicorn settings (optional)
+    PORT=8000
+    GUNICORN_WORKERS=4
+    GUNICORN_LOG_LEVEL=info
+    ```
+
+    <Warning>
+      Never commit `.env` files to version control. Always use a strong, randomly generated `SECRET_KEY` in production.
+    </Warning>
+  </Step>
+
+  <Step title="Install dependencies">
+    Install production dependencies from `requirements.txt`:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    Key production packages include:
+    - `gunicorn==22.0.0` - Production WSGI server
+    - `psycopg2==2.9.3` - PostgreSQL adapter
+    - `flask_talisman==1.0.0` - Security headers and HTTPS
+    - `Flask-Limiter==3.5.0` - Rate limiting
+  </Step>
+
+  <Step title="Run database migrations">
+    Initialize and upgrade the database schema:
+
+    ```bash
+    flask db upgrade
+    ```
+
+    See the [Database Migrations](/deployment/migrations) guide for more details.
+  </Step>
+
+  <Step title="Start the application">
+    Launch the application using Gunicorn with the provided configuration:
+
+    ```bash
+    gunicorn -c gunicorn.conf.py wsgi:application
+    ```
+
+    Or with custom settings:
+
+    ```bash
+    gunicorn --workers 4 --bind 0.0.0.0:8000 wsgi:application
+    ```
+  </Step>
+</Steps>
+
+## Gunicorn Configuration
+
+The platform includes a production-ready `gunicorn.conf.py` with optimized settings:
+
+### Worker Configuration
+
+```python
+# Auto-scales based on CPU cores (default: cpu_count * 2 + 1)
+workers = int(os.environ.get('GUNICORN_WORKERS', multiprocessing.cpu_count() * 2 + 1))
+worker_class = "sync"
+timeout = 30
+
+# Restart workers after 1000 requests to prevent memory leaks
+max_requests = 1000
+max_requests_jitter = 100
+```
+
+Override worker count via environment variable:
+
+```bash
+export GUNICORN_WORKERS=4
+```
+
+### Logging
+
+Gunicorn logs to stdout/stderr by default:
+
+```python
+accesslog = '-'  # stdout
+errorlog = '-'   # stderr
+loglevel = 'info'
+```
+
+Change log level via environment:
+
+```bash
+export GUNICORN_LOG_LEVEL=warning
+```
+
+### Process Management
+
+```python
+proc_name = 'maths-soc'
+pidfile = '/tmp/gunicorn.pid'
+preload_app = True  # Load app before forking workers
+graceful_timeout = 30
+```
+
+## WSGI Entry Point
+
+The `wsgi.py` file provides the application object for Gunicorn:
+
+```python
+import os
+from app import create_app
+
+# Determine configuration (defaults to production)
+config_name = os.environ.get('FLASK_CONFIG', 'production')
+application = create_app(config_name)
+```
+
+Reference: `wsgi.py:18-21`
+
+## Security Considerations
+
+### HTTPS Enforcement
+
+Flask-Talisman enforces HTTPS in production mode:
+
+```python
+Talisman(
+    app,
+    force_https=not (app.config.get('DEBUG') or app.config.get('TESTING')),
+    strict_transport_security=True,
+    content_security_policy=csp,
+)
+```
+
+Reference: `app/__init__.py:165-170`
+
+### Rate Limiting
+
+Built-in rate limiting protects endpoints:
+
+```python
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+)
+```
+
+Reference: `app/__init__.py:21-26`
+
+### Proxy Support
+
+When deployed behind a reverse proxy (nginx, load balancer):
+
+```python
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+```
+
+Reference: `app/__init__.py:173`
+
+## Health Checks
+
+Two endpoints are available for monitoring:
+
+### Basic Health Check
+
+```bash
+curl http://localhost:8000/healthz
+```
+
+Response:
+```json
+{"status": "ok"}
+```
+
+### Readiness Check (with database)
+
+```bash
+curl http://localhost:8000/readyz
+```
+
+Returns `200` if database is accessible, `503` if degraded.
+
+See [Monitoring and Logging](/deployment/monitoring) for more details.
+
+## Common Deployment Patterns
+
+### Systemd Service
+
+Create `/etc/systemd/system/mathsoc.service`:
+
+```ini
+[Unit]
+Description=Maths Society Platform
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/mathsoc
+Environment="PATH=/var/www/mathsoc/venv/bin"
+ExecStart=/var/www/mathsoc/venv/bin/gunicorn -c gunicorn.conf.py wsgi:application
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl enable mathsoc
+sudo systemctl start mathsoc
+```
+
+### Docker Deployment
+
+Example Dockerfile:
+
+```dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "wsgi:application"]
+```
+
+Run with:
+
+```bash
+docker build -t mathsoc .
+docker run -p 8000:8000 --env-file .env mathsoc
+```
+
+### Nginx Reverse Proxy
+
+Example nginx configuration:
+
+```nginx
+server {
+    listen 80;
+    server_name ucgsmaths.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static {
+        alias /var/www/mathsoc/app/static;
+        expires 30d;
+    }
+}
+```
+
+## Troubleshooting
+
+### Application won't start
+
+Check Gunicorn logs:
+
+```bash
+gunicorn -c gunicorn.conf.py wsgi:application --log-level debug
+```
+
+### Database connection errors
+
+Verify `DATABASE_URL` or individual database settings in `.env`. Test connection:
+
+```bash
+psql $DATABASE_URL -c "SELECT 1;"
+```
+
+### Permission errors
+
+Ensure the application user has write access to:
+- `app/static/uploads/` - for file uploads
+- `/tmp/gunicorn.pid` - for PID file
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Migrations" icon="database" href="/deployment/migrations">
+    Learn how to manage database schema changes
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/deployment/monitoring">
+    Set up logging and monitoring
+  </Card>
+</CardGroup>

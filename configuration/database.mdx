@@ -1,0 +1,299 @@
+---
+title: Database Configuration
+description: Configure PostgreSQL or SQLite database connections for the Maths Society Platform
+---
+
+The Maths Society Platform supports both PostgreSQL and SQLite databases with flexible configuration options.
+
+## Quick Setup
+
+The easiest way to configure your database is using individual environment variables:
+
+```bash
+DATABASE_TYPE=postgresql
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_NAME=mathsoc
+```
+
+## Database URI Priority
+
+The platform checks for database configuration in this order:
+
+1. **DATABASE_URL** (if set, overrides all other settings)
+2. **Individual variables** (DATABASE_TYPE, DB_USERNAME, etc.)
+3. **Defaults** (PostgreSQL on localhost)
+
+## Configuration Options
+
+### Option 1: Direct DATABASE_URL
+
+<ParamField path="DATABASE_URL" type="string">
+  Complete database connection URI. When set, this takes precedence over all other database settings.
+  
+  **PostgreSQL format:**
+  ```bash
+  DATABASE_URL=postgresql://username:password@host:port/database
+  ```
+  
+  **SQLite format:**
+  ```bash
+  DATABASE_URL=sqlite:///path/to/database.db
+  ```
+  
+  <Note>
+    This is commonly set automatically by hosting platforms like Heroku, Railway, or Render.
+  </Note>
+</ParamField>
+
+### Option 2: Individual Variables
+
+<ParamField path="DATABASE_TYPE" type="string" default="postgresql">
+  Database engine to use.
+  
+  **Supported values:**
+  - `postgresql` - Recommended for production
+  - `sqlite` - Good for development and testing
+  
+  **Example:**
+  ```bash
+  DATABASE_TYPE=postgresql
+  ```
+</ParamField>
+
+<ParamField path="DB_USERNAME" type="string" default="postgres">
+  Database user for authentication.
+  
+  **Example:**
+  ```bash
+  DB_USERNAME=mathsoc_user
+  ```
+  
+  <Note>
+    Not used when `DATABASE_TYPE=sqlite`
+  </Note>
+</ParamField>
+
+<ParamField path="DB_PASSWORD" type="string" default="">
+  Database password for authentication.
+  
+  **Example:**
+  ```bash
+  DB_PASSWORD=secure_password_here
+  ```
+  
+  <Warning>
+    Never commit database passwords to version control. Always use environment variables or secrets management.
+  </Warning>
+</ParamField>
+
+<ParamField path="DB_HOST" type="string" default="localhost">
+  Database host address.
+  
+  **Examples:**
+  ```bash
+  # Local development
+  DB_HOST=localhost
+  
+  # Remote database
+  DB_HOST=db.example.com
+  
+  # Docker service
+  DB_HOST=postgres
+  ```
+</ParamField>
+
+<ParamField path="DB_NAME" type="string" default="myapp">
+  Database name to connect to.
+  
+  **Example:**
+  ```bash
+  DB_NAME=mathsoc
+  ```
+</ParamField>
+
+## Database Examples
+
+### PostgreSQL (Production)
+
+**Using DATABASE_URL:**
+```bash
+DATABASE_URL=postgresql://mathsoc_user:secure_pass@db.example.com:5432/mathsoc_prod
+```
+
+**Using individual variables:**
+```bash
+DATABASE_TYPE=postgresql
+DB_USERNAME=mathsoc_user
+DB_PASSWORD=secure_pass
+DB_HOST=db.example.com
+DB_NAME=mathsoc_prod
+```
+
+**Generated URI:**
+```
+postgresql://mathsoc_user:secure_pass@db.example.com/mathsoc_prod
+```
+
+### SQLite (Development)
+
+**Using DATABASE_URL:**
+```bash
+DATABASE_URL=sqlite:///absolute/path/to/database.db
+```
+
+**Using individual variables:**
+```bash
+DATABASE_TYPE=sqlite
+DB_NAME=mathsoc_dev
+```
+
+**Generated URI:**
+```
+sqlite:///path/to/project/mathsoc_dev.db
+```
+
+<Note>
+  For SQLite, the database file is created in the project's base directory (where `config.py` lives).
+</Note>
+
+### Testing Environment
+
+The testing configuration automatically uses an in-memory SQLite database:
+
+```python
+SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+```
+
+No configuration needed - perfect for fast, isolated tests.
+
+## Initializing the Database
+
+### Using Flask-Migrate (Recommended)
+
+Flask-Migrate uses Alembic to manage database schema migrations:
+
+```bash
+# Set the Flask app
+export FLASK_APP=run:app  # Unix/Mac
+set FLASK_APP=run:app     # Windows
+
+# Run migrations
+flask db upgrade
+```
+
+### Using init_db.py (Development Only)
+
+For quick development setup with sample data:
+
+```bash
+python init_db.py
+```
+
+<Warning>
+  The `init_db.py` script creates a default admin user with password `admin123`. **Change this immediately** and never use this script in production.
+</Warning>
+
+## Database Settings
+
+The following SQLAlchemy settings are configured automatically:
+
+<ParamField path="SQLALCHEMY_TRACK_MODIFICATIONS" type="boolean" default="false">
+  Disabled by default to save resources. The Flask-SQLAlchemy event system is not needed for this application.
+</ParamField>
+
+<ParamField path="SQLALCHEMY_DATABASE_URI" type="string">
+  Automatically generated from your environment variables using the `get_database_uri()` method.
+  
+  **Environment-specific behavior:**
+  - **Development:** Uses configured database (PostgreSQL or SQLite)
+  - **Testing:** Uses in-memory SQLite (`sqlite:///:memory:`)
+  - **Production:** Uses configured database (PostgreSQL recommended)
+</ParamField>
+
+## Production Recommendations
+
+<Warning>
+  **Use PostgreSQL in production.** SQLite is not recommended for production use due to:
+  - Limited concurrent write support
+  - No built-in replication
+  - File-based storage limitations
+</Warning>
+
+### Best Practices
+
+1. **Use managed database services:**
+   - AWS RDS
+   - Google Cloud SQL
+   - Azure Database for PostgreSQL
+   - Railway, Render, or Supabase
+
+2. **Set DATABASE_URL via platform secrets:**
+   ```bash
+   # Don't commit this to .env
+   DATABASE_URL=postgresql://user:pass@host/db
+   ```
+
+3. **Enable connection pooling** for high-traffic applications
+
+4. **Run migrations before deployment:**
+   ```bash
+   flask db upgrade
+   ```
+
+5. **Set up regular backups** of your production database
+
+## Troubleshooting
+
+### Connection Issues
+
+If you can't connect to PostgreSQL:
+
+```bash
+# Test connection manually
+psql -h localhost -U postgres -d mathsoc
+
+# Check if PostgreSQL is running
+sudo systemctl status postgresql  # Linux
+brew services list               # Mac
+```
+
+### Migration Issues
+
+If migrations fail:
+
+```bash
+# Initialize migrations (first time only)
+flask db init
+
+# Create a new migration
+flask db migrate -m "Description"
+
+# Apply migrations
+flask db upgrade
+```
+
+### SQLite Permissions
+
+Ensure the application has write permissions to the database directory:
+
+```bash
+# Check permissions
+ls -la *.db
+
+# Fix if needed
+chmod 644 mathsoc.db
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/configuration/environment">
+    Configure environment-specific settings
+  </Card>
+  
+  <Card title="Security Settings" icon="shield" href="/configuration/security">
+    Set up CSP, rate limiting, and HTTPS
+  </Card>
+</CardGroup>

@@ -1,0 +1,271 @@
+---
+title: Challenge Management
+description: Creating and managing challenges with answer boxes, scheduling, and time-based locking
+---
+
+## Overview
+
+The challenge management system allows administrators to create mathematical challenges with multiple answer boxes, schedule releases, and configure automatic locking.
+
+## Creating Challenges
+
+Navigate to **Admin Dashboard > Manage Challenges > Create Challenge** to create a new challenge.
+
+### ChallengeForm Fields
+
+When creating a challenge, you need to provide:
+
+- **title** - Challenge title (1-100 characters, required)
+- **content** - Rich text description using CKEditor (required)
+- **image** - Optional image upload (jpg, png, gif)
+- **key_stage** - Target audience (ks3, ks4, or ks5, required)
+- **release_at** - Scheduled release date and time (optional, defaults to immediate)
+- **lock_after_hours** - Auto-lock after X hours (optional, 1-8760 hours)
+- **answer_boxes** - List of answer boxes (minimum 1 required)
+
+See `ChallengeForm` in forms.py:164-199.
+
+### Answer Boxes
+
+Challenges use multiple answer boxes to support multi-part questions. Each answer box requires:
+
+**AnswerBoxForm Fields:**
+- **box_label** - Label for the answer box (e.g., "Part A", "Step 1")
+- **correct_answer** - The correct answer string
+- **order** - Optional ordering number for display sequence
+
+Answer boxes are defined using a `FieldList` of `FormField(AnswerBoxForm)` (forms.py:137-162).
+
+### Example: Creating a Multi-Part Challenge
+
+```python
+# In the admin interface, you would create:
+Challenge:
+  title: "Quadratic Equations"
+  content: "<p>Solve the following equations:</p>"
+  key_stage: "ks4"
+  
+Answer Box 1:
+  box_label: "Part A: x² + 5x + 6 = 0"
+  correct_answer: "x = -2, x = -3"
+  order: 1
+  
+Answer Box 2:
+  box_label: "Part B: x² - 9 = 0"
+  correct_answer: "x = 3, x = -3"
+  order: 2
+```
+
+## Scheduling Challenges
+
+### Immediate Release
+
+Leave the `release_at` field blank to publish the challenge immediately. The system sets `release_at` to the current datetime (routes.py:487).
+
+### Scheduled Release
+
+Set a future `release_at` datetime to schedule the challenge. Challenges are only visible to:
+- Non-admin users: After `release_at` time
+- Admin users: Always visible (routes.py:397-399)
+
+The `CrossPlatformDateTimeField` handles datetime input across platforms (forms.py:78-103).
+
+### Viewing Released vs Unreleased
+
+The manage challenges page separates:
+- **Released challenges**: `release_at <= now` (routes.py:713)
+- **Unreleased challenges**: `release_at > now` (routes.py:714)
+
+## Challenge Locking
+
+Challenges can be locked in two ways:
+
+### 1. Automatic Time-Based Locking
+
+Set `lock_after_hours` to automatically lock the challenge X hours after its release:
+
+- Minimum: 1 hour
+- Maximum: 8760 hours (1 year)
+- Leave blank for no auto-lock
+
+The `is_locked` property checks if current time exceeds `release_at + lock_after_hours` (models.py:77-91).
+
+### 2. Manual Locking
+
+Administrators can manually lock/unlock challenges:
+
+1. Navigate to **Manage Challenges**
+2. Click **Lock** or **Unlock** next to the challenge
+3. The `is_manually_locked` flag will be toggled
+
+See `toggle_challenge_lock()` in routes.py:545-566.
+
+### Lock Behavior
+
+**When a challenge is locked:**
+- Students cannot submit answers
+- Correct answers are revealed
+- Submissions show "This challenge is locked" message (routes.py:406-408)
+
+**Lock priority:**
+1. Manual lock checked first
+2. Time-based lock checked second
+
+See the `is_locked` property in models.py:78-91.
+
+## Editing Challenges
+
+Navigate to **Manage Challenges** and click **Edit** next to any challenge.
+
+### Editable Fields
+
+All fields from `ChallengeForm` can be modified:
+- Title, content, key stage
+- Release time and lock settings
+- Image (uploading a new image replaces the old one)
+- Answer boxes (can add, edit, or remove)
+
+### Managing Answer Boxes During Edit
+
+The edit process (routes.py:568-658):
+
+1. **Updating existing boxes**: Matches boxes by index and updates fields
+2. **Adding new boxes**: Creates new `ChallengeAnswerBox` records
+3. **Removing boxes**: Deletes boxes only if they have no submissions
+
+<Warning>
+Answer boxes with student submissions are preserved to maintain data integrity. You cannot delete an answer box that has submissions.
+</Warning>
+
+### Pre-populating the Edit Form
+
+On GET requests, the form is pre-populated with:
+- Challenge details (title, content, key stage, etc.)
+- Existing answer boxes sorted by order (routes.py:637-654)
+
+## Deleting Challenges
+
+Deleting a challenge removes:
+
+1. The challenge record
+2. All answer boxes
+3. All answer submissions
+4. Uploaded image files
+5. Challenge folder (if empty)
+
+See `delete_challenge()` in routes.py:723-781.
+
+<Warning>
+Challenge deletion is permanent and removes all student submission data. Use with caution.
+</Warning>
+
+## Image Uploads
+
+Challenges support optional image uploads.
+
+### Upload Process
+
+1. Images are saved to a dated folder: `uploads/challenge_YYYY-MM-DD/`
+2. The `create_challenge_folder()` function creates the folder structure (routes.py:108-124)
+3. Files are secured using `secure_filename()` (routes.py:127-145)
+4. The filename is stored in `challenge.file_url`
+
+### Supported Formats
+
+Only jpg, png, and gif files are allowed (forms.py:186).
+
+### Accessing Uploaded Images
+
+Images are served via `/uploads/challenges/<id>` (routes.py:661-674).
+
+## Answer Submission
+
+Students submit answers through the challenge view page.
+
+### Submission Process
+
+1. Student selects an answer box and enters their answer
+2. System checks if challenge is locked (routes.py:406-408)
+3. System checks for existing correct submission (routes.py:414-423)
+4. New `AnswerSubmission` is created with:
+   - `user_id`
+   - `challenge_id`
+   - `answer_box_id`
+   - `answer` (submitted text)
+   - `is_correct` (boolean based on string comparison)
+
+See `view_challenge()` in routes.py:387-476.
+
+### Answer Checking
+
+Answers are checked using simple string comparison:
+
+```python
+is_correct = (form.answer.data.strip() == answer_box.correct_answer.strip())
+```
+
+For mathematical expressions, the `ChallengeAnswerBox.check_answer()` method uses the math engine (models.py:119-137).
+
+### Preventing Duplicate Submissions
+
+Once a user submits a correct answer for an answer box, they cannot submit again (routes.py:414-423).
+
+## Managing Submissions
+
+The challenge view page shows:
+
+- All answer boxes for the challenge
+- User's previous submissions organized by answer box
+- Whether each submission was correct or incorrect
+- Overall completion status (`all_correct` flag)
+
+See routes.py:449-476.
+
+## CKEditor Integration
+
+Challenge content uses CKEditor for rich text editing.
+
+### File Uploads in CKEditor
+
+The `/admin/upload` endpoint handles image uploads within CKEditor (routes.py:677-704):
+
+- Accepts jpg, jpeg, png, gif only
+- Saves to `UPLOAD_FOLDER`
+- Returns URL for embedding in content
+
+### Math Rendering
+
+CKEditor content can include:
+- HTML formatting
+- Embedded images
+- Mathematical notation (if math plugins are configured)
+
+## Key Stage Filtering
+
+Challenges are categorized by key stage:
+
+- **ks3**: Key Stage 3 (Years 7-8)
+- **ks4**: Key Stage 4 (Years 9-11)
+- **ks5**: Key Stage 5 (Years 12-13)
+
+Students typically see challenges matching their key stage, though admins can override this.
+
+## Best Practices
+
+<Check>
+- Use clear, descriptive box labels for multi-part questions
+- Set appropriate lock times to create urgency without frustrating students
+- Test answer checking with various formats before releasing
+- Schedule releases during school hours for better engagement
+- Use images to enhance question clarity
+- Order answer boxes logically (1, 2, 3, etc.)
+</Check>
+
+## Related Routes
+
+- **Manage Challenges**: `/admin/challenges` (routes.py:707)
+- **Create Challenge**: `/admin/challenges/create` (routes.py:479)
+- **Edit Challenge**: `/admin/challenges/edit/<id>` (routes.py:568)
+- **Delete Challenge**: `/admin/challenges/delete/<id>` (routes.py:723)
+- **Toggle Lock**: `/admin/challenges/toggle_lock/<id>` (routes.py:545)
+- **View Challenge**: `/challenges/<id>` (routes.py:387)

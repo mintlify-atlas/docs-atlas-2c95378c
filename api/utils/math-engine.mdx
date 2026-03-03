@@ -1,0 +1,375 @@
+---
+title: Math Engine
+description: Mathematical expression evaluation and normalization engine for educational assessments
+---
+
+A robust Python-based mathematical expression evaluation engine designed for educational platforms. This engine handles complex mathematical expression comparison, normalization, and equivalence checking with support for both standard mathematical notation and LaTeX formatting.
+
+## ExpressionNormalizer
+
+The core class that provides mathematical expression normalization and equivalence checking with LaTeX support.
+
+```python
+from app.utils.math_engine import ExpressionNormalizer
+
+normalizer = ExpressionNormalizer()
+```
+
+### Constructor
+
+Initializes the normalizer with SymPy transformations and a local dictionary of mathematical functions.
+
+**Transformations:**
+- Standard SymPy transformations
+- Implicit multiplication application (e.g., `2x` → `2*x`)
+- XOR conversion
+
+**Local Dictionary Includes:**
+- Mathematical functions: `log`, `ln`, `exp`, `sqrt`, `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`
+- Constants: `e`, `pi`
+- Calculus: `Integral`, `Derivative`
+- Special functions: `Piecewise`, `Heaviside`, `floor`, `ceiling`, `Max`, `Min`
+- Relational operators: `Eq`, `Ne`, `Lt`, `Gt`, `Le`, `Ge`
+
+See source: `app/utils/math_engine.py:83-131`
+
+### normalize_expression()
+
+Converts an expression to canonical form for comparison.
+
+```python
+normalized = normalizer.normalize_expression("2*x + 3")
+# Returns: "2*x + 3" (canonical string form)
+
+normalized = normalizer.normalize_expression(r"\frac{x^2 + 2x + 1}{x + 1}")
+# Returns canonical form of the expression
+```
+
+**Parameters:**
+- `expression_str` (str): The mathematical expression to normalize
+
+**Returns:**
+- `str`: Stable canonical string representation
+
+**Process:**
+1. Parse to SymPy expression
+2. Apply canonicalization
+3. Convert to stable string
+
+See source: `app/utils/math_engine.py:136-146`
+
+### expressions_equivalent()
+
+Checks if two expressions are mathematically equivalent.
+
+```python
+# Standard mathematical expressions
+result = normalizer.expressions_equivalent("2*x + 3", "3 + 2*x")
+# Returns: True
+
+# Factored vs expanded forms
+result = normalizer.expressions_equivalent("x^2 + 2*x + 1", "(x + 1)^2")
+# Returns: True
+
+# LaTeX vs standard notation
+result = normalizer.expressions_equivalent(r"c\left(a+b\right)", "c*(a+b)")
+# Returns: True
+```
+
+**Parameters:**
+- `expr1` (str): First mathematical expression
+- `expr2` (str): Second mathematical expression
+
+**Returns:**
+- `bool`: True if expressions are mathematically equivalent
+
+**Equivalence Strategy:**
+1. Parse both expressions to SymPy
+2. Convert to difference form
+3. Check if difference is symbolically zero
+4. Fall back to numeric probing if symbolic methods inconclusive
+5. Final fallback to structural comparison
+
+See source: `app/utils/math_engine.py:148-174`
+
+### get_canonical_form()
+
+Generates canonical form for database storage.
+
+```python
+canonical = normalizer.get_canonical_form("3 + 2*x")
+# Returns: "2*x + 3" (canonical form)
+```
+
+**Parameters:**
+- `expression_str` (str): Expression to canonicalize
+
+**Returns:**
+- `str`: Canonical string representation for consistent storage
+
+See source: `app/utils/math_engine.py:176-186`
+
+## Public Functions
+
+Convenience functions that use the global `math_normalizer` instance.
+
+### compare_mathematical_expressions()
+
+Compares two mathematical expressions for equivalence.
+
+```python
+from app.utils.math_engine import compare_mathematical_expressions
+
+user_answer = "2*x + 3"
+correct_answer = "3 + 2*x"
+is_correct = compare_mathematical_expressions(user_answer, correct_answer)
+# Returns: True
+```
+
+**Parameters:**
+- `user_answer` (str): User's submitted answer
+- `correct_answer` (str): Expected correct answer
+
+**Returns:**
+- `bool`: True if expressions are equivalent
+
+**Use Case:** Primary function for answer validation in educational assessments
+
+See source: `app/utils/math_engine.py:541-545`
+
+### normalize_expression_for_storage()
+
+Normalizes an expression for consistent database storage.
+
+```python
+from app.utils.math_engine import normalize_expression_for_storage
+
+expression = "3 + 2*x"
+stored_form = normalize_expression_for_storage(expression)
+# Returns: "2*x + 3"
+```
+
+**Parameters:**
+- `expression` (str): Expression to normalize
+
+**Returns:**
+- `str`: Canonical form suitable for database storage
+
+**Use Case:** Storing expressions in a consistent format for efficient comparison and retrieval
+
+See source: `app/utils/math_engine.py:548-552`
+
+### latex_to_sympy_string()
+
+Converts LaTeX expression to SymPy string representation.
+
+```python
+from app.utils.math_engine import latex_to_sympy_string
+
+latex_expr = r"\frac{x^2 + 2x + 1}{x + 1}"
+sympy_str = latex_to_sympy_string(latex_expr)
+# Returns: "(x**2 + 2*x + 1)/(x + 1)"
+```
+
+**Parameters:**
+- `latex_expr` (str): LaTeX formatted expression
+
+**Returns:**
+- `str`: SymPy string representation
+
+**Dependencies:**
+- Prefers `latex2sympy2` library when available
+- Falls back to SymPy's parser for non-LaTeX or parsing failures
+
+**Note:** Returns original string if parsing fails
+
+See source: `app/utils/math_engine.py:555-582`
+
+### latex_to_simplified_latex()
+
+Simplifies a LaTeX expression and returns simplified LaTeX.
+
+```python
+from app.utils.math_engine import latex_to_simplified_latex
+
+latex_expr = r"\frac{2x + 2}{2}"
+simplified = latex_to_simplified_latex(latex_expr)
+# Returns simplified LaTeX form
+```
+
+**Parameters:**
+- `latex_expr` (str): LaTeX formatted expression
+
+**Returns:**
+- `str`: Simplified LaTeX expression
+
+**Process:**
+1. Try `latex2latex` for quick simplification (when available)
+2. Fall back to parse → SymPy canonicalize → LaTeX printer
+3. Return original if all methods fail
+
+See source: `app/utils/math_engine.py:585-612`
+
+## LaTeX Support
+
+The math engine provides comprehensive LaTeX support through the `latex2sympy2` library with intelligent fallbacks.
+
+### Supported LaTeX Features
+
+**Fractions:**
+```python
+r"\frac{numerator}{denominator}"
+```
+
+**Roots:**
+```python
+r"\sqrt{expression}"  # Square root
+r"\sqrt[n]{expression}"  # nth root
+```
+
+**Functions:**
+```python
+r"\sin(x)", r"\cos(x)", r"\tan(x)"
+r"\log(x)", r"\ln(x)", r"\exp(x)"
+```
+
+**Operators:**
+```python
+r"\cdot"  # Multiplication
+r"\times" # Multiplication
+r"\div"   # Division
+```
+
+**Delimiters:**
+```python
+r"\left( \right)"  # Parentheses
+r"\left[ \right]"  # Brackets
+r"\left\{ \right\}"  # Braces
+```
+
+**Powers and Subscripts:**
+```python
+"x^{2}"    # Superscript
+"x_{i}"    # Subscript
+```
+
+### LaTeX Detection
+
+The engine automatically detects LaTeX input based on:
+- Math mode markers: `$`, `\(`, `\)`, `\[`, `\]`
+- LaTeX commands: `\frac`, `\sqrt`, `\sin`, `\cos`, etc.
+- LaTeX operators: `\cdot`, `\times`, `\div`
+- Superscripts/subscripts: `^{`, `_{`
+
+See source: `app/utils/math_engine.py:50-68`
+
+## Expression Normalization Strategies
+
+The canonicalization pipeline applies multiple SymPy simplifications in sequence:
+
+### Canonicalization Pipeline
+
+1. **Basic Simplification:** `sp.simplify(expr)`
+2. **Rational Functions:** `sp.together()` and `sp.cancel()`
+3. **Logarithm Expansion:** `sp.expand_log()` and `sp.logcombine()`
+4. **Power Simplification:** `sp.powsimp()` and `sp.powdenest()`
+5. **Multiplication Expansion:** `sp.expand_mul()`
+6. **Term Factoring:** `sp.factor_terms()`
+7. **Final Simplification:** `sp.simplify()`
+8. **Term Ordering:** Lexicographic sorting of terms
+
+See source: `app/utils/math_engine.py:325-368`
+
+### Equivalence Checking Methods
+
+**Symbolic Zero Detection:**
+- Canonicalize and check if difference equals 0
+- Apply `sp.simplify()`, `sp.together()`, `sp.cancel()`
+
+See source: `app/utils/math_engine.py:415-433`
+
+**Numeric Probing:**
+- Evaluates difference at random points
+- 8 trials with domain -5 to 6
+- Tolerance: 1e-9
+- Skips domain errors (division by zero, etc.)
+
+See source: `app/utils/math_engine.py:435-477`
+
+**Structural Comparison:**
+- Final fallback comparing canonicalized string forms
+
+See source: `app/utils/math_engine.py:479-488`
+
+## Security Features
+
+The math engine includes input validation to prevent code injection:
+
+### Dangerous Pattern Detection
+
+Blocks expressions containing:
+- Python builtins: `exec`, `eval`, `compile`, `__import__`
+- Attribute access: `getattr`, `setattr`, `delattr`
+- File operations: `open`, `file`
+- User input: `input`
+- Special attributes: `__name__`, `__dict__`, etc.
+- Import statements
+- Lambda expressions
+
+See source: `app/utils/math_engine.py:192-219`
+
+## Usage Examples
+
+### Basic Expression Validation
+
+```python
+from app.utils.math_engine import compare_mathematical_expressions
+
+# In a route handler for answer submission
+def validate_answer(user_input, correct_answer):
+    is_correct = compare_mathematical_expressions(user_input, correct_answer)
+    return is_correct
+```
+
+### Database Integration
+
+```python
+from app.utils.math_engine import normalize_expression_for_storage
+
+# Store canonical form for efficient lookup
+canonical = normalize_expression_for_storage(user_input)
+question.canonical_answer = canonical
+db.session.commit()
+```
+
+### LaTeX Form Handling
+
+```python
+from app.utils.math_engine import compare_mathematical_expressions
+
+# Handle LaTeX from mathematical input fields
+latex_input = request.form.get('answer')  # e.g., r"\frac{x^2}{2}"
+standard_answer = "(x^2)/2"
+is_correct = compare_mathematical_expressions(latex_input, standard_answer)
+```
+
+## Error Handling
+
+The math engine implements graceful degradation:
+
+1. **Primary:** LaTeX parsing via `latex2sympy2`
+2. **Secondary:** SymPy parsing with transformations
+3. **Tertiary:** SymPy parsing without transformations
+4. **Fallback:** Basic string normalization
+
+All parsing errors are logged but don't crash the application. When symbolic methods fail, the engine falls back to less sophisticated but more robust comparison methods.
+
+## Dependencies
+
+**Required:**
+- `sympy >= 1.12.0` - Symbolic mathematics engine
+
+**Optional:**
+- `latex2sympy2` - Enhanced LaTeX parsing (recommended)
+
+If `latex2sympy2` is not available, the engine will still function but with reduced LaTeX parsing capabilities.

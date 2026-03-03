@@ -1,0 +1,223 @@
+---
+title: User Management
+description: Managing users, schools, and permissions in the Maths Society Platform
+---
+
+## Overview
+
+The user management system allows administrators to create, edit, and delete user accounts, manage schools, and configure user permissions. Users can be regular students or summer competition participants linked to schools.
+
+## Creating Users
+
+Navigate to **Admin Dashboard > Manage Users > Create User** to add new user accounts.
+
+### Form Fields
+
+When creating a user with `CreateUserForm`, you need to provide:
+
+- **first_name** - User's first name (required, no whitespace)
+- **last_name** - User's last name (required, no whitespace)
+- **email** - User's email address (required, must be unique)
+- **password** - Initial password for the user (required)
+- **year** - Academic year (7-13, required)
+- **is_admin** - Boolean flag to grant admin privileges
+- **is_competition_participant** - Boolean flag for summer competition participants
+- **school_id** - School selection (required for competition participants)
+- **maths_class** - Mathematics class (for regular users only)
+
+### Key Stage Assignment
+
+The system automatically assigns users to Key Stages based on their year:
+
+- **KS3**: Years 7-8
+- **KS4**: Years 9-11
+- **KS5**: Years 12-13
+
+This is handled by the `get_key_stage()` function in `app/admin/routes.py:153`.
+
+### Competition vs Regular Users
+
+**Competition Participants:**
+- Must be assigned to a school (`school_id` required)
+- Do not have a `maths_class` field
+- Can participate in summer challenges
+- Appear in summer leaderboards
+
+**Regular Users:**
+- Do not require a school assignment
+- Must have a `maths_class` specified
+- Can participate in regular challenges
+- Appear in standard leaderboards by key stage
+
+## Editing Users
+
+Navigate to **Admin Dashboard > Manage Users** and click **Edit** next to any user.
+
+### EditUserForm Fields
+
+The `EditUserForm` provides the same fields as creation, except:
+- No password field (use "Reset Password" instead)
+- School assignment can be changed
+- Competition participant status can be toggled
+
+<Warning>
+Changing a user from competition participant to regular user (or vice versa) will affect their leaderboard entries and challenge participation.
+</Warning>
+
+## User Search and Filtering
+
+The enhanced user management interface supports:
+
+### Search Capabilities
+
+Search users by:
+- Full name
+- Email address
+- Maths class
+- User ID (numeric search)
+
+The search uses case-insensitive pattern matching (routes.py:810-829).
+
+### Filter Options
+
+- **Key Stage**: Filter by KS3, KS4, or KS5
+- **Year**: Filter by specific academic year (7-13)
+- **User Type**: Competition participants or regular users
+- **Admin Status**: Admins only or non-admins
+
+### Pagination
+
+Users are paginated with 25 users per page by default. You can adjust this up to 100 users per page.
+
+## Bulk Actions
+
+The user management interface supports bulk operations (routes.py:975-1036):
+
+### Available Actions
+
+1. **Promote to Admin** - Grant admin privileges to selected users
+2. **Demote from Admin** - Remove admin privileges (cannot demote yourself)
+3. **Mark as Competition Participant** - Convert users to competition participants
+4. **Unmark from Competition** - Convert users to regular users
+5. **Delete Users** - Remove selected users (cannot delete yourself)
+
+### How to Use Bulk Actions
+
+1. Check the boxes next to users you want to modify
+2. Select an action from the dropdown menu
+3. Click "Apply" to execute the action
+
+<Note>
+Bulk actions are processed via AJAX at the `/admin/users/bulk-action` endpoint.
+</Note>
+
+## Deleting Users
+
+Deleting a user removes all associated data:
+
+- Leaderboard entries (both regular and summer)
+- Answer submissions
+- Summer challenge submissions
+- Authored articles
+
+See `delete_user()` in routes.py:1210-1244.
+
+<Warning>
+You cannot delete your own account. User deletion is permanent and cannot be undone.
+</Warning>
+
+## Password Management
+
+### Resetting Passwords
+
+To reset a user's password:
+
+1. Navigate to **Manage Users**
+2. Click **Reset Password** next to the user
+3. A random password will be generated and displayed
+4. Share the new password securely with the user
+
+The `generate_random_password()` function creates a 10-character password using letters and digits (routes.py:148-150).
+
+## Managing Schools
+
+Navigate to **Admin Dashboard > Manage Schools** to manage school records.
+
+### Creating Schools
+
+Use the `SchoolForm` to create schools with:
+
+- **name** - School name (required, max 100 characters, must be unique)
+- **email_domain** - Email domain for the school (optional, max 100 characters)
+- **address** - Physical address (optional, max 200 characters)
+
+Schools are automatically assigned a `date_joined` timestamp.
+
+### Editing Schools
+
+Click **Edit** next to any school to modify its details. All fields can be updated.
+
+### Deleting Schools
+
+<Warning>
+Deleting a school will affect all users assigned to that school. Ensure users are reassigned before deletion or handle orphaned users appropriately.
+</Warning>
+
+## Admin Privileges
+
+### Toggling Admin Status
+
+To grant or revoke admin privileges:
+
+1. Navigate to **Manage Users**
+2. Click **Toggle Admin** next to the user
+3. The user's `is_admin` flag will be flipped
+
+See `toggle_admin()` in routes.py:1247-1268.
+
+### Admin Permissions
+
+Users with `is_admin=True` can:
+
+- Access the admin dashboard (`/admin`)
+- Create and manage challenges
+- Create and manage articles and newsletters
+- Manage users and schools
+- View and export leaderboards
+- Create announcements
+- Access unreleased challenges
+
+All admin routes are protected by the `@admin_required` decorator (routes.py:95-105).
+
+## User Statistics
+
+The user management dashboard displays:
+
+- Total users
+- Admin users
+- Competition participants
+- Regular users
+- Recent registrations (last 30 days)
+- Key stage breakdown
+- Year breakdown
+
+These statistics are available via the `/admin/users/stats` endpoint (routes.py:1038-1071).
+
+## Best Practices
+
+<Check>
+- Always verify email uniqueness before creating users
+- Assign competition participants to schools before setting the flag
+- Use bulk actions for large-scale user management
+- Regularly audit admin privileges
+- Reset passwords securely and require users to change them on first login
+</Check>
+
+## Related Routes
+
+- **Manage Users**: `/admin/manage_users` (routes.py:789)
+- **Create User**: `/admin/manage_users/create` (routes.py:1073)
+- **Edit User**: `/admin/manage_users/edit/<user_id>` (routes.py:1142)
+- **Delete User**: `/admin/manage_users/delete/<user_id>` (routes.py:1210)
+- **Reset Password**: `/admin/manage_users/reset_password/<user_id>` (routes.py:1271)
+- **Manage Schools**: `/admin/manage_schools` (routes.py:1901)

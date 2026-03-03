@@ -1,80 +1,372 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get your Maths Society Platform running in under 5 minutes
 ---
 
-## Get started in three steps
+## Get Up and Running Fast
 
-Get your documentation site running locally and make your first customization.
+This guide will get you from zero to a running Maths Society Platform in minimal steps. Perfect for trying out the platform or starting local development.
 
-### Step 1: Set up your local environment
+<Warning>
+  This quickstart is for **development only**. For production deployment, see the [Installation Guide](/installation).
+</Warning>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Prerequisites
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
+Before you begin, ensure you have:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Python 3.8+" icon="python">
+    Check with `python --version` or `python3 --version`
+  </Card>
+  <Card title="pip" icon="box">
+    Python package installer (usually included with Python)
+  </Card>
+  <Card title="Git" icon="git-alt">
+    For cloning the repository
+  </Card>
+  <Card title="PostgreSQL (Optional)" icon="database">
+    SQLite works for quick testing, PostgreSQL recommended for development
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Quick Setup
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the project and navigate into the directory:
+
+    ```bash
+    git clone https://github.com/yousuf-shahzad/maths-soc-source.git
+    cd maths-soc-source
+    ```
+
+    <Tip>
+      You can also fork the repository first if you plan to make customizations.
+    </Tip>
+  </Step>
+
+  <Step title="Create Virtual Environment">
+    Create and activate a Python virtual environment:
+
+    <CodeGroup>
+      ```bash Windows
+      python -m venv venv
+      venv\Scripts\activate
+      ```
+
+      ```bash macOS/Linux
+      python3 -m venv venv
+      source venv/bin/activate
+      ```
+    </CodeGroup>
+
+    You should see `(venv)` in your terminal prompt when the environment is activated.
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required Python packages:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    This installs:
+    - Flask 2.1.0 and extensions
+    - SQLAlchemy 1.4.31
+    - PostgreSQL driver (psycopg2)
+    - CKEditor, WTForms, and other dependencies
+
+    <Note>
+      Installation may take 1-2 minutes depending on your connection speed.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment">
+    Create a `.env` file in the project root with basic configuration:
+
+    ```env .env
+    # Secret key for session management
+    SECRET_KEY=dev-secret-key-change-in-production
+
+    # Database configuration (SQLite for quickstart)
+    DATABASE_TYPE=sqlite
+    DB_NAME=mathsoc
+
+    # Environment settings
+    FLASK_ENV=development
+    APP_ENVIRONMENT=development
+
+    # Logging
+    LOG_TO_STDOUT=false
+    ```
+
+    <Warning>
+      The `SECRET_KEY` shown here is for development only. **Never use this in production!**
+    </Warning>
+
+    <Accordion title="Using PostgreSQL Instead (Recommended)">
+      If you prefer PostgreSQL (recommended for closer-to-production development):
+
+      ```env .env
+      SECRET_KEY=dev-secret-key-change-in-production
+
+      # PostgreSQL configuration
+      DATABASE_TYPE=postgresql
+      DB_USERNAME=postgres
+      DB_PASSWORD=your_password
+      DB_HOST=localhost
+      DB_NAME=mathsoc
+
+      FLASK_ENV=development
+      APP_ENVIRONMENT=development
+      LOG_TO_STDOUT=false
+      ```
+
+      Make sure PostgreSQL is running and the database exists:
+      ```bash
+      createdb mathsoc
+      ```
+    </Accordion>
+  </Step>
+
+  <Step title="Initialize the Database">
+    Set up the database schema and create a default admin user:
+
+    <CodeGroup>
+      ```bash Quick Setup (Development)
+      python init_db.py
+      ```
+
+      ```bash Production-like Setup
+      # Windows
+      set FLASK_APP=run:app
+      flask db upgrade
+
+      # macOS/Linux
+      export FLASK_APP=run:app
+      flask db upgrade
+      ```
+    </CodeGroup>
+
+    The `init_db.py` script:
+    - Creates all database tables
+    - Creates a default admin user
+    - Seeds initial data for testing
+
+    <Note>
+      **Default admin credentials:**
+      - Username: `admin`
+      - Password: `admin123`
+      
+      **Change this password immediately after first login!**
+    </Note>
+  </Step>
+
+  <Step title="Run the Application">
+    Start the Flask development server:
+
+    ```bash
+    python run.py
+    ```
+
+    You should see output like:
+    ```
+    * Serving Flask app 'app'
+    * Debug mode: on
+    * Running on http://127.0.0.1:5000
+    ```
+
+    <Check>
+      Your Maths Society Platform is now running! Open http://127.0.0.1:5000 in your browser.
+    </Check>
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Test that everything is working correctly:
+
+<Steps>
+  <Step title="Access the Homepage">
+    Navigate to http://127.0.0.1:5000 - you should see the Maths Society homepage
+  </Step>
+
+  <Step title="Login as Admin">
+    Click "Login" and use the default credentials:
+    - Username: `admin`
+    - Password: `admin123`
+  </Step>
+
+  <Step title="Access Admin Panel">
+    After login, navigate to the admin area to verify admin functionality
+  </Step>
+
+  <Step title="Check Health Endpoints">
+    Test the health check endpoints:
+    ```bash
+    curl http://127.0.0.1:5000/healthz
+    curl http://127.0.0.1:5000/readyz
+    ```
+
+    Both should return `{"status": "ok"}` or `{"status": "ready"}`
+  </Step>
+</Steps>
+
+## Application Structure
+
+Here's what you've just set up:
+
+```python run.py
+from app import create_app
+
+app = create_app('development')
+
+if __name__ == '__main__':
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug_mode, host='127.0.0.1', port=5000)
+```
+
+The application uses the **factory pattern** defined in `app/__init__.py`:
+
+```python app/__init__.py (simplified)
+def create_app(config_name="development"):
+    config_class = get_config(config_name)
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+    
+    # Initialize extensions
+    db.init_app(app)
+    login_manager.init_app(app)
+    migrate.init_app(app, db)
+    ckeditor.init_app(app)
+    limiter.init_app(app)
+    
+    # Register blueprints
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
+    app.register_blueprint(profile_bp)
+    app.register_blueprint(admin_bp)
+    
+    return app
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="compass">
+    - Create challenges
+    - Set up a competition
+    - Write articles and newsletters
+    - Customize the platform
+  </Card>
+  <Card title="Development Tips" icon="code">
+    - Run tests with `pytest`
+    - Enable debug mode for development
+    - Use Flask-Migrate for schema changes
+    - Check logs in `app.log`
+  </Card>
+  <Card title="Configuration" icon="sliders">
+    - Review `config.py` for settings
+    - Configure email notifications
+    - Set up rate limiting
+    - Customize CSP policies
+  </Card>
+  <Card title="Production Deployment" icon="server">
+    - Read the [Installation Guide](/installation)
+    - Set up PostgreSQL
+    - Configure Gunicorn
+    - Deploy with proper secrets
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Port 5000 Already in Use">
+    If port 5000 is occupied, you can change it in `run.py`:
+
+    ```python run.py
+    app.run(debug=debug_mode, host='127.0.0.1', port=5001)
+    ```
+
+    Or set the `FLASK_RUN_PORT` environment variable.
+  </Accordion>
+
+  <Accordion title="Database Connection Error">
+    If using PostgreSQL and seeing connection errors:
+    1. Verify PostgreSQL is running: `pg_isready`
+    2. Check database exists: `psql -l | grep mathsoc`
+    3. Verify credentials in `.env` file
+    4. Try SQLite instead by setting `DATABASE_TYPE=sqlite`
+  </Accordion>
+
+  <Accordion title="Import Errors or Missing Modules">
+    If you see `ModuleNotFoundError`:
+    1. Ensure virtual environment is activated (look for `(venv)` in prompt)
+    2. Reinstall dependencies: `pip install -r requirements.txt`
+    3. Try upgrading pip: `pip install --upgrade pip`
+  </Accordion>
+
+  <Accordion title="Template or Static Files Not Loading">
+    If CSS/images aren't loading:
+    1. Check Flask is serving from the correct directory
+    2. Verify `app/static` directory exists
+    3. Clear browser cache
+    4. Check browser console for CSP errors
+  </Accordion>
+</AccordionGroup>
+
+## Development Workflow
+
+For ongoing development:
+
+<Steps>
+  <Step title="Start Development Server">
+    ```bash
+    python run.py
+    ```
+    The server auto-reloads on code changes in debug mode.
+  </Step>
+
+  <Step title="Make Database Changes">
+    When modifying models:
+    ```bash
+    flask db migrate -m "Description of changes"
+    flask db upgrade
+    ```
+  </Step>
+
+  <Step title="Run Tests">
+    Before committing:
+    ```bash
+    pytest
+    ```
+  </Step>
+
+  <Step title="Build Documentation">
+    Generate Sphinx docs:
+    ```bash
+    cd docs
+    pip install -r requirements.txt
+    make html
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Enable debug mode to get detailed error pages and automatic reloading. Just ensure `FLASK_ENV=development` is set in your `.env` file.
+</Tip>
+
+## Getting Help
+
+Need assistance?
+
+- Check the [Installation Guide](/installation) for detailed configuration
+- Review the [Configuration Reference](/configuration/environment) for all available settings
+- Explore the [API Documentation](/api/auth) for integration details
+- Visit the GitHub repository for issue tracking and community support
+
+<Check>
+  Congratulations! You now have a working Maths Society Platform. Start exploring the admin panel to create challenges and customize your platform.
+</Check>

@@ -1,0 +1,173 @@
+---
+title: 'User and School'
+description: 'User accounts and school organizations'
+---
+
+## User
+
+The User model represents student and admin accounts in the system.
+
+**Table name:** `users`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="full_name" type="String(100)" required>
+  User's full name (indexed)
+</ResponseField>
+
+<ResponseField name="email" type="String(120)" required>
+  Unique email address (indexed)
+</ResponseField>
+
+<ResponseField name="year" type="Integer">
+  Academic year level
+</ResponseField>
+
+<ResponseField name="maths_class" type="String(100)">
+  Math class identifier
+</ResponseField>
+
+<ResponseField name="password_hash" type="String(128)">
+  Hashed password using Werkzeug security
+</ResponseField>
+
+<ResponseField name="is_admin" type="Boolean" default="false" required>
+  Administrative privileges flag
+</ResponseField>
+
+<ResponseField name="key_stage" type="String(3)" required>
+  Educational key stage (indexed)
+</ResponseField>
+
+<ResponseField name="school_id" type="Integer">
+  Foreign key to `school.id` (indexed, nullable)
+</ResponseField>
+
+<ResponseField name="is_competition_participant" type="Boolean" default="false" required>
+  Competition participation flag
+</ResponseField>
+
+### Relationships
+
+<Expandable title="submissions">
+  One-to-many relationship with `AnswerSubmission`
+  
+  - Back populates: `user`
+  - Lazy loading: `dynamic`
+  - Cascade: `all, delete-orphan`
+</Expandable>
+
+<Expandable title="articles">
+  One-to-many relationship with `Article`
+  
+  - Back populates: `author`
+  - Lazy loading: `dynamic`
+  - Cascade: `all, save-update`
+</Expandable>
+
+<Expandable title="school">
+  Many-to-one relationship with `School` (via backref)
+</Expandable>
+
+<Expandable title="leaderboard_entries">
+  One-to-many relationship with `LeaderboardEntry` (via backref)
+  
+  - Cascade: `all, delete-orphan`
+</Expandable>
+
+<Expandable title="summer_submissions">
+  One-to-many relationship with `SummerSubmission` (via backref)
+  
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="summer_leaderboard_entries">
+  One-to-many relationship with `SummerLeaderboard` (via backref)
+  
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Methods
+
+<ResponseField name="set_password" type="method">
+  ```python
+  def set_password(self, password)
+  ```
+  
+  Hash and set user password using `generate_password_hash`
+  
+  **Parameters:**
+  - `password` (str): Plain text password to hash
+</ResponseField>
+
+<ResponseField name="check_password" type="method">
+  ```python
+  def check_password(self, password) -> bool
+  ```
+  
+  Verify password against stored hash using `check_password_hash`
+  
+  **Parameters:**
+  - `password` (str): Plain text password to verify
+  
+  **Returns:**
+  - `bool`: True if password matches, False otherwise
+</ResponseField>
+
+### Mixins
+
+Inherits from `UserMixin` (Flask-Login) and `db.Model`
+
+---
+
+## School
+
+The School model represents educational institutions.
+
+**Table name:** `school`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="name" type="String(100)" required>
+  School name (unique, indexed)
+</ResponseField>
+
+<ResponseField name="email_domain" type="String(100)">
+  Email domain for school addresses
+</ResponseField>
+
+<ResponseField name="address" type="String(200)">
+  Physical address
+</ResponseField>
+
+<ResponseField name="date_joined" type="DateTime" default="datetime.datetime.now" required>
+  Timestamp when school joined the platform
+</ResponseField>
+
+### Relationships
+
+<Expandable title="users">
+  One-to-many relationship with `User` (via backref)
+  
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="summer_submissions">
+  One-to-many relationship with `SummerSubmission` (via backref)
+  
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="leaderboard_entries">
+  One-to-many relationship with `SummerLeaderboard` (via backref)
+  
+  - Lazy loading: `dynamic`
+</Expandable>

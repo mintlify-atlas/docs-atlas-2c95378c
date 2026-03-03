@@ -1,0 +1,352 @@
+---
+title: Database Migrations
+description: Managing database schema changes with Flask-Migrate and Alembic
+---
+
+The Maths Society Platform uses Flask-Migrate (built on Alembic) to manage database schema migrations. This guide covers common migration workflows.
+
+## Overview
+
+Migrations are stored in the `migrations/` directory and track changes to your database schema over time. Flask-Migrate provides CLI commands to create, apply, and manage migrations.
+
+### Migration Directory Structure
+
+```text
+migrations/
+├── alembic.ini          # Alembic configuration
+├── env.py               # Migration environment setup
+├── script.py.mako       # Template for new migrations
+└── versions/            # Individual migration scripts
+    ├── abc123_initial.py
+    └── def456_add_user_fields.py
+```
+
+## Configuration
+
+Flask-Migrate is initialized in `app/__init__.py`:
+
+```python
+migrate = Migrate()
+migrate.init_app(app, db, render_as_batch=True)
+```
+
+Reference: `app/__init__.py:201`
+
+<Info>
+  The `render_as_batch=True` option enables batch mode for SQLite, which is required for certain schema alterations.
+</Info>
+
+## Common Migration Commands
+
+### Applying Migrations
+
+<Steps>
+  <Step title="Upgrade to latest schema">
+    Apply all pending migrations to bring your database up to date:
+
+    ```bash
+    flask db upgrade
+    ```
+
+    This is the most common command and should be run:
+    - After pulling code with new migrations
+    - During initial production deployment
+    - As part of your deployment pipeline
+  </Step>
+
+  <Step title="Verify migration status">
+    Check which migrations have been applied:
+
+    ```bash
+    flask db current
+    ```
+
+    View migration history:
+
+    ```bash
+    flask db history
+    ```
+  </Step>
+</Steps>
+
+### Creating New Migrations
+
+<Steps>
+  <Step title="Auto-generate migration">
+    After modifying SQLAlchemy models, generate a migration automatically:
+
+    ```bash
+    flask db migrate -m "Add user profile fields"
+    ```
+
+    This detects schema changes and creates a new migration file in `migrations/versions/`.
+  </Step>
+
+  <Step title="Review generated migration">
+    <Warning>
+      Always review auto-generated migrations before applying them. Alembic may miss certain changes or generate incorrect operations.
+    </Warning>
+
+    Open the generated file in `migrations/versions/` and verify:
+    - Table and column names are correct
+    - Data types are appropriate
+    - Indexes and constraints are preserved
+    - No unintended drops or alterations
+  </Step>
+
+  <Step title="Apply the migration">
+    Once reviewed, apply the migration:
+
+    ```bash
+    flask db upgrade
+    ```
+  </Step>
+</Steps>
+
+### Rolling Back Migrations
+
+Downgrade to a previous version if needed:
+
+```bash
+# Downgrade one version
+flask db downgrade
+
+# Downgrade to specific revision
+flask db downgrade abc123
+
+# Downgrade to base (empty database)
+flask db downgrade base
+```
+
+<Warning>
+  Downgrading can cause data loss. Always backup your database before rolling back migrations.
+</Warning>
+
+### Manual Migrations
+
+Create an empty migration for manual schema changes:
+
+```bash
+flask db revision -m "Custom data migration"
+```
+
+Edit the generated file to add custom `upgrade()` and `downgrade()` logic.
+
+## Migration Workflows
+
+### Development Workflow
+
+<Steps>
+  <Step title="Modify models">
+    Update SQLAlchemy models in `app/models.py`:
+
+    ```python
+    class User(db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        username = db.Column(db.String(64), unique=True)
+        bio = db.Column(db.Text)  # New field
+    ```
+  </Step>
+
+  <Step title="Generate migration">
+    ```bash
+    flask db migrate -m "Add bio field to User model"
+    ```
+  </Step>
+
+  <Step title="Review and apply">
+    ```bash
+    # Review the generated file
+    cat migrations/versions/xyz789_add_bio_field.py
+
+    # Apply migration
+    flask db upgrade
+    ```
+  </Step>
+
+  <Step title="Test changes">
+    Verify the migration worked:
+
+    ```python
+    from app.models import User
+    user = User.query.first()
+    user.bio = "Test bio"
+    db.session.commit()
+    ```
+  </Step>
+</Steps>
+
+### Production Deployment Workflow
+
+<Steps>
+  <Step title="Backup database">
+    Before applying migrations in production:
+
+    ```bash
+    # PostgreSQL
+    pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
+
+    # SQLite
+    cp mathsoc.db mathsoc.db.backup
+    ```
+  </Step>
+
+  <Step title="Pull latest code">
+    ```bash
+    git pull origin main
+    ```
+  </Step>
+
+  <Step title="Apply migrations">
+    ```bash
+    flask db upgrade
+    ```
+
+    Monitor output for errors. If migration fails, it will typically roll back automatically.
+  </Step>
+
+  <Step title="Restart application">
+    ```bash
+    # Systemd
+    sudo systemctl restart mathsoc
+
+    # Docker
+    docker-compose restart
+
+    # Manual
+    pkill -HUP gunicorn
+    ```
+  </Step>
+</Steps>
+
+## Database Initialization
+
+### First-Time Setup
+
+For a new database, initialize the migration system:
+
+```bash
+# Only needed if migrations/ doesn't exist
+flask db init
+
+# Apply all migrations
+flask db upgrade
+```
+
+<Info>
+  The migrations directory is already included in the repository, so `flask db init` is typically not needed.
+</Info>
+
+### Seeding Initial Data
+
+For development, use the provided seeding script:
+
+```bash
+python init_db.py
+```
+
+This creates tables and a default admin user with password `admin123`.
+
+<Warning>
+  `init_db.py` is for development only. Never use it in production.
+</Warning>
+
+## Troubleshooting
+
+### "Target database is not up to date"
+
+Means pending migrations exist. Run:
+
+```bash
+flask db upgrade
+```
+
+### "Can't locate revision identified by 'xyz'"
+
+Migration files are out of sync. Ensure all migrations are committed to version control and pulled on all environments.
+
+### Auto-detection misses changes
+
+Some changes aren't detected automatically:
+- Table or column renames (use `op.rename_table()` or `op.alter_column()`)
+- Changes to column constraints
+- Server defaults
+
+Create a manual migration:
+
+```bash
+flask db revision -m "Rename user table"
+```
+
+Edit the file:
+
+```python
+def upgrade():
+    op.rename_table('user', 'users')
+
+def downgrade():
+    op.rename_table('users', 'user')
+```
+
+### SQLite limitations
+
+SQLite doesn't support many ALTER operations. Flask-Migrate's batch mode works around this, but some operations may still fail. Consider using PostgreSQL for production.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always review auto-generated migrations">
+    Alembic's auto-detection is good but not perfect. Review every migration before applying to production.
+  </Accordion>
+
+  <Accordion title="Use descriptive migration messages">
+    ```bash
+    # Good
+    flask db migrate -m "Add email verification fields to User"
+
+    # Bad
+    flask db migrate -m "update"
+    ```
+  </Accordion>
+
+  <Accordion title="Test migrations on a copy of production data">
+    Before running migrations in production, test on a recent database dump to catch issues.
+  </Accordion>
+
+  <Accordion title="Never edit applied migrations">
+    Once a migration is applied (especially in production), never modify it. Create a new migration to fix issues.
+  </Accordion>
+
+  <Accordion title="Keep migrations small and focused">
+    Break large schema changes into multiple migrations for easier troubleshooting and rollback.
+  </Accordion>
+</AccordionGroup>
+
+## Environment Variables
+
+Migration commands respect the same database configuration as the application:
+
+```env
+# Use DATABASE_URL (takes precedence)
+DATABASE_URL=postgresql://user:pass@localhost/mathsoc
+
+# Or individual settings
+DATABASE_TYPE=postgresql
+DB_USERNAME=postgres
+DB_PASSWORD=secret
+DB_HOST=localhost
+DB_NAME=mathsoc
+```
+
+Reference: `config.py:38-61`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Production Deployment" icon="rocket" href="/deployment/production">
+    Deploy your application to production
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/deployment/monitoring">
+    Set up logging and health checks
+  </Card>
+</CardGroup>

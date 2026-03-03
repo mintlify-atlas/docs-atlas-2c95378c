@@ -1,0 +1,100 @@
+---
+title: 'LeaderboardEntry and SummerLeaderboard'
+description: 'Leaderboard tracking for regular and summer competitions'
+---
+
+## LeaderboardEntry
+
+The LeaderboardEntry model tracks user scores for regular challenges.
+
+**Table name:** `leaderboard_entry`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key to `users.id` (indexed)
+</ResponseField>
+
+<ResponseField name="score" type="Integer" default="0" required>
+  User's total score
+</ResponseField>
+
+<ResponseField name="last_updated" type="DateTime" default="datetime.datetime.now" required>
+  Last update timestamp (indexed)
+</ResponseField>
+
+<ResponseField name="key_stage" type="String(3)" required>
+  Educational key stage (indexed)
+</ResponseField>
+
+### Relationships
+
+<Expandable title="user">
+  Many-to-one relationship with `User` (via backref)
+  
+  - Backref: `leaderboard_entries`
+  - Cascade: `all, delete-orphan`
+</Expandable>
+
+### Indexes
+
+Composite index for leaderboard queries:
+
+- `ix_leaderboard_entry_key_stage_score` on (`key_stage`, `score`)
+
+---
+
+## SummerLeaderboard
+
+The SummerLeaderboard model tracks user scores for summer competition challenges.
+
+**Table name:** `summer_leaderboard`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key to `users.id` (indexed)
+</ResponseField>
+
+<ResponseField name="school_id" type="Integer" required>
+  Foreign key to `school.id` (indexed)
+</ResponseField>
+
+<ResponseField name="score" type="Integer" default="0" required>
+  User's total summer competition score
+</ResponseField>
+
+<ResponseField name="last_updated" type="DateTime" default="datetime.datetime.now" required>
+  Last update timestamp (indexed)
+</ResponseField>
+
+### Relationships
+
+<Expandable title="user">
+  Many-to-one relationship with `User` (via backref)
+  
+  - Backref: `summer_leaderboard_entries`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="school">
+  Many-to-one relationship with `School` (via backref)
+  
+  - Backref: `leaderboard_entries`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Indexes
+
+Composite indexes for leaderboard queries:
+
+- `ix_summer_leaderboard_school_score` on (`school_id`, `score`)
+- `ix_summer_leaderboard_score` on (`score`)

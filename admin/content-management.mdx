@@ -1,0 +1,450 @@
+---
+title: Content Management
+description: Managing articles, newsletters, and announcements in the Maths Society Platform
+---
+
+## Overview
+
+The content management system allows administrators to create and publish articles, upload newsletter PDFs, and post announcements to keep students informed and engaged.
+
+## Article Management
+
+Articles are rich-text content pieces that can be blog posts, educational content, or news items.
+
+### Creating Articles
+
+Navigate to **Admin Dashboard > Manage Articles > Create Article**.
+
+### ArticleForm Fields
+
+The `ArticleForm` (forms.py:231-260) requires:
+
+- **title** - Article title (1-100 characters, required)
+- **author** - Article author name (1-100 characters, required)
+- **content** - Rich text content using CKEditor (required)
+- **type** - Select "article" or "newsletter" (required)
+- **file** - PDF file upload (for newsletters only, optional)
+
+### Article vs Newsletter
+
+The platform supports two content types:
+
+**Articles:**
+- Text-based content with HTML formatting
+- No file upload
+- Rendered directly on the site
+- Used for blog posts, news, tutorials
+
+**Newsletters:**
+- Can have rich text content AND/OR a PDF file
+- PDF stored in `uploads/newsletters/` folder
+- Filename format: `newsletter_YYYY_MM_originalname.pdf`
+- Used for monthly newsletters, reports, bulletins
+
+### Article Data Model
+
+The `Article` model (models.py:175-200) stores:
+
+```python
+class Article:
+    id: Integer
+    title: String(100)
+    content: Text
+    named_creator: String(100)  # Author name
+    date_posted: DateTime (auto-set)
+    user_id: Integer (FK to admin who created it)
+    type: String(20) ("article" or "newsletter")
+    file_url: String(255) (PDF filename for newsletters)
+```
+
+### Creating Articles
+
+See `create_article()` in routes.py:221-269:
+
+1. Form validation
+2. Article object created with:
+   - Title, content, author from form
+   - `user_id` set to `current_user.id`
+   - `type` from form selection
+   - `date_posted` set to now
+3. If PDF file uploaded:
+   - Newsletters folder created if needed
+   - File saved with timestamp prefix: `newsletter_YYYY_MM_filename.pdf`
+   - Filename stored in `file_url`
+4. Article committed to database
+
+### File Upload Handling
+
+Newsletter PDFs are handled specially:
+
+```python
+# Folder structure
+UPLOAD_FOLDER/newsletters/newsletter_2024_03_march_newsletter.pdf
+
+# Filename generation (routes.py:251-252)
+filename = f"newsletter_{checking_id}_{form.file.data.filename}"
+checking_id = article.date_posted.strftime("%Y_%m")
+```
+
+Only PDF files are allowed (forms.py:259).
+
+## Editing Articles
+
+Navigate to **Manage Articles** and click **Edit** next to any article.
+
+### Editable Fields
+
+All fields can be modified:
+- Title
+- Content
+- Author name
+- Type (article/newsletter)
+- PDF file (for newsletters)
+
+See `edit_article()` in routes.py:285-343.
+
+### Replacing Newsletter PDFs
+
+When uploading a new PDF:
+
+1. Old PDF file is deleted from disk (routes.py:311-315)
+2. New PDF is uploaded
+3. New filename stored in `file_url`
+
+<Note>
+If the old file doesn't exist, the deletion fails silently to prevent errors.
+</Note>
+
+### Pre-populating the Form
+
+On GET requests, the form is pre-filled with existing article data (routes.py:332-336).
+
+## Deleting Articles
+
+Deleting an article:
+
+1. Removes the database record
+2. Deletes the PDF file if it's a newsletter
+3. Redirects to the article list
+
+See `delete_article()` in routes.py:346-379.
+
+<Warning>
+Article deletion is permanent. The PDF file is also removed from the server.
+</Warning>
+
+### File Cleanup
+
+The system attempts to delete the PDF file but logs a warning if it fails (routes.py:363-368):
+
+```python
+try:
+    os.remove(file_path)
+except OSError as e:
+    current_app.logger.warning(f"Could not delete file: {file_path} - {str(e)}")
+```
+
+## Managing Articles
+
+The article management interface displays all articles ordered by date (newest first).
+
+### Viewing Articles
+
+Access via `/admin/articles` (routes.py:272-282).
+
+Shows:
+- Article title
+- Author name
+- Type (article/newsletter)
+- Date posted
+- Actions (Edit, Delete)
+
+### Article Listing Query
+
+```python
+articles = Article.query.order_by(Article.date_posted.desc()).all()
+```
+
+All articles are shown regardless of type (routes.py:277).
+
+## CKEditor Integration
+
+Article content uses CKEditor for rich text editing.
+
+### Rich Text Features
+
+Supported formatting:
+- Headings, paragraphs
+- Bold, italic, underline
+- Lists (ordered and unordered)
+- Links
+- Images (via upload)
+- Code blocks
+- Tables
+
+### Image Uploads in Content
+
+The CKEditor upload endpoint handles embedded images.
+
+See `upload()` in routes.py:677-704:
+
+1. Receives image from CKEditor
+2. Validates file extension (jpg, jpeg, png, gif only)
+3. Saves to `UPLOAD_FOLDER` using `secure_filename()`
+4. Returns URL for embedding: `/static/uploads/{filename}`
+
+### Upload Validation
+
+```python
+extension = f.filename.split(".")[-1].lower()
+if extension not in ["jpg", "jpeg", "png", "gif"]:
+    return upload_fail(message="Image files only (jpg, jpeg, png, gif).")
+```
+
+## Announcement Management
+
+Announcements are simpler content items for quick updates.
+
+### Creating Announcements
+
+Navigate to **Admin Dashboard > Manage Announcements > Create Announcement**.
+
+### AnnouncementForm Fields
+
+The `AnnouncementForm` (forms.py:371-387) requires:
+
+- **title** - Announcement title (required)
+- **content** - Rich text content using CKEditor (required)
+
+Announcements do not have:
+- Author field (implied to be admin)
+- File uploads
+- Type selection
+
+### Announcement Data Model
+
+The `Announcement` model (models.py:227-236):
+
+```python
+class Announcement:
+    id: Integer
+    title: String(100)
+    content: Text
+    date_posted: DateTime (auto-set)
+```
+
+### Creating Announcements
+
+See `create_announcement()` in routes.py:1621-1646:
+
+1. Form validation
+2. Announcement created with title, content, and auto-set timestamp
+3. Saved to database
+4. Redirect to announcements list
+
+### Editing Announcements
+
+Edit via `/admin/announcements/edit/<announcement_id>` (routes.py:1649-1677).
+
+Only title and content can be modified. Date posted is not editable.
+
+### Deleting Announcements
+
+Delete via `/admin/announcements/delete/<announcement_id>` (routes.py:1680-1699).
+
+Deletion is permanent with no associated files to clean up.
+
+### Managing Announcements
+
+View all announcements at `/admin/announcements` (routes.py:1606-1618).
+
+Announcements are ordered by date posted (newest first):
+
+```python
+announcements = Announcement.query.order_by(Announcement.date_posted.desc()).all()
+```
+
+## Content Organization
+
+### Article Types
+
+Articles are categorized by type:
+
+- **article** - Regular blog posts and content
+- **newsletter** - Monthly newsletters with optional PDFs
+
+Filter by type using the `Article.type` field (indexed for performance).
+
+### Content Relationships
+
+Articles track their creators:
+
+```python
+Article:
+    user_id -> User (the admin who created it)
+    named_creator -> String (author name, can differ from creator)
+```
+
+This allows:
+- Auditing who created content
+- Crediting external authors via `named_creator`
+- Tracking admin content creation activity
+
+## File Storage Structure
+
+```
+UPLOAD_FOLDER/
+├── newsletters/
+│   ├── newsletter_2024_01_january.pdf
+│   ├── newsletter_2024_02_february.pdf
+│   └── newsletter_2024_03_march.pdf
+├── challenge_2024-01-15/
+│   ├── problem.jpg
+│   └── responses/
+└── image1.png  # CKEditor uploads
+```
+
+### Newsletter Folder
+
+Created automatically when first newsletter is uploaded (routes.py:246-249):
+
+```python
+newsletter_path = os.path.join(current_app.config["UPLOAD_FOLDER"], "newsletters")
+os.makedirs(newsletter_path, exist_ok=True)
+```
+
+### File Security
+
+All filenames are sanitized using `secure_filename()` from Werkzeug (routes.py:142):
+
+```python
+secure_name = secure_filename(filename)
+```
+
+This prevents:
+- Directory traversal attacks
+- Special character issues
+- Filename injection
+
+## Content Display
+
+Articles and announcements are displayed to students on the main site.
+
+### Article URLs
+
+- List view: `/articles`
+- Detail view: `/articles/<id>`
+
+### Announcement Display
+
+- Announcements typically shown on homepage or dedicated announcements page
+- Ordered by date (newest first)
+
+### PDF Access
+
+Newsletter PDFs are served via:
+
+```python
+# Article model property
+@property
+def pdf_path(self):
+    if self.file_url and self.type == "newsletter":
+        return os.path.join(
+            current_app.config["UPLOAD_FOLDER"], "newsletters", self.file_url
+        )
+    return None
+```
+
+See models.py:190-197.
+
+## Best Practices
+
+<Check>
+- Use descriptive article titles for better SEO
+- Set meaningful author names (can differ from logged-in admin)
+- Compress PDF files before uploading to save bandwidth
+- Use announcements for urgent, short updates
+- Use articles for longer, evergreen content
+- Test CKEditor formatting before publishing
+- Keep newsletter filenames simple and descriptive
+- Archive old content periodically
+</Check>
+
+## Common Workflows
+
+### Publishing a Monthly Newsletter
+
+<Steps>
+  <Step title="Prepare PDF">
+    Create newsletter PDF with consistent naming (e.g., "march_2024.pdf")
+  </Step>
+  
+  <Step title="Create Newsletter">
+    1. Navigate to Create Article
+    2. Set type to "newsletter"
+    3. Enter title: "March 2024 Newsletter"
+    4. Enter author name
+    5. Add summary in content field
+    6. Upload PDF file
+  </Step>
+  
+  <Step title="Verify">
+    Check that the newsletter appears in the article list with correct date
+  </Step>
+</Steps>
+
+### Creating an Announcement
+
+<Steps>
+  <Step title="Navigate">
+    Admin Dashboard > Manage Announcements > Create
+  </Step>
+  
+  <Step title="Compose">
+    1. Enter clear, concise title
+    2. Write announcement content (keep it brief)
+    3. Use formatting for emphasis
+  </Step>
+  
+  <Step title="Publish">
+    Click Submit - announcement is immediately visible
+  </Step>
+</Steps>
+
+## Error Handling
+
+The system includes comprehensive error handling:
+
+### File Upload Errors
+
+- Invalid file types are rejected
+- IOError during save triggers rollback (routes.py:262-265)
+- Missing folders are created automatically
+
+### Database Errors
+
+- All database operations wrapped in try-except
+- SQLAlchemyError triggers rollback
+- Errors logged for debugging
+- User-friendly error messages displayed
+
+Example (routes.py:262-265):
+
+```python
+except (IOError, SQLAlchemyError) as e:
+    db.session.rollback()
+    current_app.logger.error(f"Error creating article: {str(e)}")
+    flash("Error creating article. Please try again.")
+```
+
+## Related Routes
+
+- **Manage Articles**: `/admin/articles` (routes.py:272)
+- **Create Article**: `/admin/articles/create` (routes.py:221)
+- **Edit Article**: `/admin/articles/edit/<id>` (routes.py:285)
+- **Delete Article**: `/admin/articles/delete/<id>` (routes.py:346)
+- **Manage Announcements**: `/admin/announcements` (routes.py:1606)
+- **Create Announcement**: `/admin/announcements/create` (routes.py:1621)
+- **Edit Announcement**: `/admin/announcements/edit/<id>` (routes.py:1649)
+- **Delete Announcement**: `/admin/announcements/delete/<id>` (routes.py:1680)
+- **CKEditor Upload**: `/admin/upload` (routes.py:677)

@@ -1,0 +1,411 @@
+---
+title: Competition Setup
+description: Setting up and managing summer competitions, schools, and leaderboards
+---
+
+## Overview
+
+The summer competition system allows schools to compete against each other through timed challenges. Students are linked to schools, and their scores contribute to both individual and school leaderboards.
+
+## Summer Competition Architecture
+
+The competition system consists of:
+
+- **Schools**: Participating institutions
+- **Competition Users**: Students marked with `is_competition_participant=True`
+- **Summer Challenges**: Timed challenges with duration limits
+- **Summer Leaderboard**: Tracks individual student scores by school
+
+## Setting Up Schools
+
+Before creating competition users, set up participating schools.
+
+### Creating Schools
+
+Navigate to **Admin Dashboard > Manage Schools** and use the `SchoolForm`:
+
+- **name** - School name (required, unique, max 100 chars)
+- **email_domain** - Email domain for the school (optional)
+- **address** - Physical address (optional)
+
+See `manage_schools()` in routes.py:1901-1917.
+
+### School Data Model
+
+The `School` model (models.py:239-252) includes:
+
+```python
+class School:
+    id: Integer (primary key)
+    name: String(100) (unique, indexed)
+    email_domain: String(100)
+    address: String(200)
+    date_joined: DateTime (auto-set)
+    users: Relationship to User
+```
+
+### Editing and Deleting Schools
+
+- **Edit**: `/admin/manage_schools/edit/<school_id>` (routes.py:1919-1932)
+- **Delete**: `/admin/manage_schools/delete/<school_id>` (routes.py:1934-1942)
+
+<Warning>
+Deleting a school affects all associated users and leaderboard entries. Reassign users before deletion.
+</Warning>
+
+## Creating Competition Participants
+
+Competition participants are users with special flags and school assignments.
+
+### Using CreateUserForm
+
+When creating a user for competition:
+
+1. Fill in standard fields (first_name, last_name, email, password, year)
+2. **Check** `is_competition_participant`
+3. **Select** a school from `school_id` dropdown
+4. **Leave** `maths_class` blank (not used for competition users)
+
+See routes.py:1096-1101 for school validation.
+
+### Competition User Requirements
+
+<Check>
+- `is_competition_participant` must be True
+- `school_id` must be set (required validation)
+- `maths_class` should be None
+- `key_stage` auto-calculated from year
+</Check>
+
+### Bulk Converting Users
+
+You can convert existing users to competition participants:
+
+1. Navigate to **Manage Users**
+2. Select users with checkboxes
+3. Choose **Mark as Competition Participant** from bulk actions
+4. **Important**: Manually assign schools afterward
+
+See `users_bulk_action()` in routes.py:1010-1014.
+
+## Creating Summer Challenges
+
+Summer challenges are timed challenges specifically for the competition.
+
+### SummerChallengeForm Fields
+
+Navigate to **Admin Dashboard > Manage Summer Challenges > Create**.
+
+- **title** - Challenge title (1-100 characters)
+- **content** - Rich text description (CKEditor)
+- **image** - Optional image upload (jpg, png, gif)
+- **key_stage** - Target key stage (KS3, KS4, KS5)
+- **release_at** - Scheduled release datetime (optional, defaults to now)
+- **duration_hours** - Challenge duration (1-168 hours, required)
+- **answer_boxes** - List of answer boxes (minimum 1)
+
+See `SummerChallengeForm` in forms.py:201-213.
+
+### Duration vs Lock After Hours
+
+**Summer Challenges** use `duration_hours`:
+- Challenge locks automatically when `now > date_posted + duration_hours`
+- Duration is required (1-168 hours, i.e., 1 week max)
+
+**Regular Challenges** use `lock_after_hours`:
+- Optional field
+- Can be up to 8760 hours (1 year)
+
+### Summer Challenge Locking
+
+Summer challenges can be locked in two ways:
+
+1. **Time-based**: Automatically locks after `duration_hours`
+2. **Manual**: Admin toggles `is_manually_locked` flag
+
+The `is_locked` property checks both (models.py:286-290):
+
+```python
+@property
+def is_locked(self):
+    return (self.is_manually_locked or 
+            datetime.now() > self.date_posted + timedelta(hours=self.duration_hours))
+```
+
+### Creating Summer Challenges
+
+See `create_summer_challenge()` in routes.py:1746-1800:
+
+1. Form submission validated
+2. Release time set (or defaults to now)
+3. Challenge created with duration
+4. Image uploaded if provided
+5. Answer boxes created and linked
+
+### Editing Summer Challenges
+
+Editing works similarly to regular challenges:
+
+- All fields can be updated
+- Answer boxes can be added/edited/removed
+- Boxes with submissions are preserved
+- Images can be replaced
+
+See `edit_summer_challenge()` in routes.py:1802-1889.
+
+### Toggling Summer Challenge Locks
+
+Manually lock/unlock challenges:
+
+```
+POST /admin/summer_challenges/toggle_lock/<challenge_id>
+```
+
+See `toggle_summer_challenge_lock()` in routes.py:1725-1744.
+
+## Summer Leaderboard Management
+
+The summer leaderboard tracks competition participants' scores.
+
+### Leaderboard Entry Structure
+
+`SummerLeaderboard` model (models.py:383-402):
+
+```python
+class SummerLeaderboard:
+    id: Integer
+    user_id: Integer (FK to User)
+    school_id: Integer (FK to School)
+    score: Integer (default 0)
+    last_updated: DateTime
+```
+
+### Adding Leaderboard Entries
+
+Navigate to **Admin Dashboard > Manage Summer Leaderboard > Add Entry**.
+
+Use `SummerLeaderboardEntryForm` (forms.py:396-417):
+
+- **user_id** - Select from competition participants only
+- **school_id** - Select from available schools
+- **score** - Initial score (minimum 0)
+
+See `add_summer_leaderboard_entry()` in routes.py:2495-2545.
+
+### Validation Rules
+
+1. Users can only have one leaderboard entry (routes.py:2510-2514)
+2. Warning if user's assigned school differs from selected school (routes.py:2517-2519)
+3. Only competition participants appear in user dropdown (routes.py:2503-2504)
+
+### Editing Leaderboard Entries
+
+Edit entries with change tracking:
+
+- All fields can be modified
+- Changes are logged (routes.py:2573-2598)
+- Cannot create duplicate entries for same user
+- `last_updated` is automatically set
+
+See `edit_summer_leaderboard_entry()` in routes.py:2548-2615.
+
+### Bulk Leaderboard Actions
+
+Bulk actions available:
+
+1. **Delete entries** - Remove selected entries
+2. **Reset scores** - Set selected entries to score 0
+
+See `summer_leaderboard_bulk_action()` in routes.py:2216-2252.
+
+### Resetting the Leaderboard
+
+Reset all scores to 0 for a new competition period:
+
+```
+POST /admin/summer_leaderboard/reset
+```
+
+This updates all entries with `score=0` and `last_updated=now` (routes.py:2644-2665).
+
+## Leaderboard Analytics
+
+The platform provides comprehensive competition analytics.
+
+### Statistics Dashboard
+
+Access via `/admin/summer_leaderboard/stats` (routes.py:2254-2263).
+
+Provides:
+- Total entries
+- Unique participants
+- Participating schools
+- Max/min/average scores
+- Total score across all participants
+- Key stage breakdown
+- School performance rankings
+- Top 10 performers
+
+See `calculate_summer_leaderboard_stats()` in routes.py:2065-2157.
+
+### School Rankings
+
+Access school-level analytics at `/admin/summer_leaderboard/school_rankings` (routes.py:2351-2409).
+
+Shows per school:
+- Participant count
+- Total score (sum of all students)
+- Average score
+- Best individual score
+- Lowest individual score
+- Key stage performance breakdown
+
+### Advanced Analytics
+
+Access comprehensive analytics at `/admin/summer_leaderboard/analytics` (routes.py:2412-2492).
+
+Provides:
+- Score distribution histogram
+- Top 10% performers
+- Participation by key stage
+- Recent activity (last 7 days)
+- School performance summary
+
+## Exporting Competition Data
+
+Export leaderboard data for external analysis.
+
+### CSV Export
+
+```
+GET /admin/summer_leaderboard/export?format=csv
+```
+
+Includes:
+- Rank
+- User ID
+- Name
+- Year
+- Key Stage
+- School
+- Score
+- Last Updated
+- Date Exported
+
+See routes.py:2328-2343.
+
+### JSON Export
+
+```
+GET /admin/summer_leaderboard/export?format=json
+```
+
+Provides structured data for programmatic access (routes.py:2301-2326).
+
+### Filtered Exports
+
+Supports query parameters:
+- `key_stage` - Filter by key stage
+- `school_id` - Filter by school
+- `min_score` - Minimum score threshold
+- `max_score` - Maximum score threshold
+
+See routes.py:2269-2348.
+
+## Search and Filtering
+
+The leaderboard management interface supports:
+
+### Search Options
+
+- Student name (case-insensitive)
+- School name
+- User ID (numeric)
+
+See `summer_leaderboard_search()` in routes.py:2160-2213.
+
+### Filter Options
+
+- Key stage (KS3, KS4, KS5)
+- School
+- Sort by: score, name, school, key_stage
+- Sort order: ascending or descending
+
+See `manage_summer_leaderboard()` in routes.py:1950-2062.
+
+## Submission Tracking
+
+Competition submissions are tracked separately from regular challenges.
+
+### SummerSubmission Model
+
+Tracks individual answer submissions (models.py:349-380):
+
+```python
+class SummerSubmission:
+    id: Integer
+    user_id: Integer
+    school_id: Integer
+    challenge_id: Integer
+    answer_box_id: Integer
+    answer: String
+    is_correct: Boolean
+    submitted_at: DateTime
+    points_awarded: Integer
+```
+
+### Points System
+
+The `points_awarded` field allows flexible scoring:
+- Can award different points for different answer boxes
+- Supports partial credit
+- Automatically tracked per school
+
+## Competition Workflow
+
+<Steps>
+  <Step title="Setup Phase">
+    1. Create participating schools
+    2. Create competition participant accounts
+    3. Assign users to schools
+  </Step>
+  
+  <Step title="Challenge Creation">
+    4. Create summer challenges with duration limits
+    5. Schedule challenge releases
+    6. Test answer boxes
+  </Step>
+  
+  <Step title="Competition Period">
+    7. Monitor submissions in real-time
+    8. View school rankings
+    9. Check participation rates
+  </Step>
+  
+  <Step title="Post-Competition">
+    10. Export final results
+    11. Generate analytics reports
+    12. Reset leaderboard for next period
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Check>
+- Set up all schools before creating competition users
+- Use consistent duration limits across similar challenges
+- Monitor participation rates during the competition
+- Export data regularly for backup
+- Test challenges with a test school before release
+- Clear communication of competition rules and timelines
+- Reset leaderboard only after exporting final results
+</Check>
+
+## Related Routes
+
+- **Manage Competition**: `/admin/summer_competition` (routes.py:1705)
+- **Manage Schools**: `/admin/manage_schools` (routes.py:1901)
+- **Summer Challenges**: `/admin/manage_summer_challenges` (routes.py:1711)
+- **Summer Leaderboard**: `/admin/manage_summer_leaderboard` (routes.py:1950)
+- **School Rankings**: `/admin/summer_leaderboard/school_rankings` (routes.py:2351)
+- **Analytics**: `/admin/summer_leaderboard/analytics` (routes.py:2412)

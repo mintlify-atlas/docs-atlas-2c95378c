@@ -1,0 +1,595 @@
+---
+title: Forms
+description: WTForms form classes for admin, authentication, and profile management
+---
+
+Flask-WTF form classes used across the application for various administrative tasks, user authentication, and profile management. All forms include CSRF protection by default.
+
+## Admin Forms
+
+Forms for administrative tasks including challenge management, leaderboards, and user administration.
+
+Source: `app/admin/forms.py`
+
+### LeaderboardEntryForm
+
+Form for creating and editing leaderboard entries.
+
+```python
+from app.admin.forms import LeaderboardEntryForm
+
+form = LeaderboardEntryForm()
+form.user_id.choices = [(u.id, f"{u.first_name} {u.last_name}") for u in users]
+```
+
+**Fields:**
+- `user_id` (SelectField): Dropdown selection of registered users
+- `score` (IntegerField): User's current point total (minimum 0)
+- `key_stage` (SelectField): Educational key stage classification
+  - `KS3`: Key Stage 3 (Years 7-8)
+  - `KS4`: Key Stage 4 (Years 9-11)
+  - `KS5`: Key Stage 5 (Years 12-13)
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `user_id`: DataRequired
+- `score`: DataRequired, NumberRange(min=0)
+- `key_stage`: DataRequired
+
+See source: `app/admin/forms.py:106-134`
+
+### ChallengeForm
+
+Form for creating and editing educational challenges.
+
+```python
+from app.admin.forms import ChallengeForm
+
+form = ChallengeForm()
+if form.validate_on_submit():
+    challenge = Challenge(
+        title=form.title.data,
+        content=form.content.data,
+        key_stage=form.key_stage.data
+    )
+```
+
+**Fields:**
+- `title` (StringField): Challenge title (1-100 characters)
+- `content` (CKEditorField): Rich text description of the challenge
+- `image` (FileField): Optional image upload (jpg, png, gif)
+- `release_at` (CrossPlatformDateTimeField): Scheduled release date/time (optional)
+- `lock_after_hours` (IntegerField): Auto-lock after X hours (1-8760, optional)
+- `key_stage` (SelectField): Educational key stage (ks3, ks4, ks5)
+- `answer_boxes` (FieldList): Dynamic list of answer boxes
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `title`: DataRequired, Length(min=1, max=100)
+- `content`: DataRequired
+- `image`: FileAllowed(['jpg', 'png', 'gif'])
+- `release_at`: Optional, validate_datetime_optional
+- `lock_after_hours`: Optional, NumberRange(min=1, max=8760)
+- `key_stage`: DataRequired
+
+See source: `app/admin/forms.py:164-199`
+
+### AnswerBoxForm
+
+Nested form for managing individual answer boxes within a challenge.
+
+```python
+from app.admin.forms import AnswerBoxForm
+
+# Used within ChallengeForm's FieldList
+```
+
+**Fields:**
+- `box_label` (StringField): Label for the answer box
+- `correct_answer` (StringField): The correct answer for this box
+- `order` (StringField): Optional ordering for multiple answer boxes
+
+**Note:** CSRF is disabled for nested forms to prevent validation conflicts.
+
+See source: `app/admin/forms.py:137-162`
+
+### SummerChallengeForm
+
+Form for creating summer competition challenges.
+
+**Fields:**
+- `title` (StringField): Challenge title (1-100 characters)
+- `content` (CKEditorField): Rich text challenge description
+- `image` (FileField): Optional image upload (jpg, png, gif)
+- `release_at` (CrossPlatformDateTimeField): Scheduled release date/time
+- `key_stage` (SelectField): Educational key stage (KS3, KS4, KS5)
+- `duration_hours` (IntegerField): Duration in hours (1-168)
+- `answer_boxes` (FieldList): Dynamic list of answer boxes
+- `submit` (SubmitField): Submit button
+
+See source: `app/admin/forms.py:201-213`
+
+### ArticleForm
+
+Form for creating and managing articles and newsletters.
+
+```python
+from app.admin.forms import ArticleForm
+
+form = ArticleForm()
+if form.validate_on_submit():
+    article = Article(
+        title=form.title.data,
+        author=form.author.data,
+        content=form.content.data,
+        type=form.type.data
+    )
+```
+
+**Fields:**
+- `title` (StringField): Article title (1-100 characters)
+- `author` (StringField): Article author name (1-100 characters)
+- `content` (CKEditorField): Rich text content
+- `type` (SelectField): Publication type
+  - `article`: Article
+  - `newsletter`: Newsletter
+- `file` (FileField): Optional PDF file upload
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `title`: DataRequired, Length(min=1, max=100)
+- `author`: DataRequired, Length(min=1, max=100)
+- `content`: DataRequired
+- `type`: DataRequired
+- `file`: FileAllowed(['pdf'])
+
+See source: `app/admin/forms.py:231-260`
+
+### EditUserForm
+
+Form for editing existing user details.
+
+```python
+from app.admin.forms import EditUserForm
+
+form = EditUserForm()
+if form.validate_on_submit():
+    user.first_name = form.first_name.data
+    user.last_name = form.last_name.data
+    user.email = form.email.data
+```
+
+**Fields:**
+- `first_name` (StringField): User's first name
+- `last_name` (StringField): User's last name
+- `email` (StringField): User's email address
+- `year` (SelectField): Academic year (7-13)
+- `is_competition_participant` (BooleanField): Summer competition participant flag
+- `school_id` (SelectField): School selection (dynamically populated)
+- `maths_class` (StringField): Mathematics class
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `first_name`: DataRequired
+- `last_name`: DataRequired
+- `email`: DataRequired, Email
+- `year`: DataRequired
+- `school_id`: Optional
+
+**Note:** School choices are dynamically loaded from the database in `__init__`.
+
+See source: `app/admin/forms.py:263-311`
+
+### CreateUserForm
+
+Form for creating a new user account.
+
+```python
+from app.admin.forms import CreateUserForm
+
+form = CreateUserForm()
+if form.validate_on_submit():
+    user = User(
+        first_name=form.first_name.data,
+        last_name=form.last_name.data,
+        email=form.email.data,
+        is_admin=form.is_admin.data
+    )
+    user.set_password(form.password.data)
+```
+
+**Fields:**
+- `first_name` (StringField): User's first name
+- `last_name` (StringField): User's last name
+- `email` (StringField): User's email address
+- `password` (StringField): Initial password
+- `year` (SelectField): Academic year (7-13)
+- `is_admin` (BooleanField): Grant administrative privileges
+- `is_competition_participant` (BooleanField): Summer competition participant flag
+- `school_id` (SelectField): School selection (dynamically populated)
+- `maths_class` (StringField): Mathematics class
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `first_name`: DataRequired
+- `last_name`: DataRequired
+- `email`: DataRequired, Email
+- `password`: DataRequired
+- `year`: DataRequired
+- `school_id`: Optional
+
+See source: `app/admin/forms.py:314-368`
+
+### AnnouncementForm
+
+Form for creating and publishing announcements.
+
+```python
+from app.admin.forms import AnnouncementForm
+
+form = AnnouncementForm()
+if form.validate_on_submit():
+    announcement = Announcement(
+        title=form.title.data,
+        content=form.content.data
+    )
+```
+
+**Fields:**
+- `title` (StringField): Announcement title
+- `content` (CKEditorField): Rich text content
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `title`: DataRequired
+- `content`: DataRequired
+
+See source: `app/admin/forms.py:371-387`
+
+### SchoolForm
+
+Form for managing school records.
+
+**Fields:**
+- `name` (StringField): School name (max 100 characters)
+- `email_domain` (StringField): School email domain (max 100 characters)
+- `address` (StringField): School address (max 200 characters)
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `name`: DataRequired, Length(max=100)
+- `email_domain`: Length(max=100)
+- `address`: Length(max=200)
+
+See source: `app/admin/forms.py:389-393`
+
+### SummerLeaderboardEntryForm
+
+Form for creating and editing summer competition leaderboard entries.
+
+**Fields:**
+- `user_id` (SelectField): Dropdown selection of registered users
+- `school_id` (SelectField): Dropdown selection of participating schools
+- `score` (IntegerField): User's current point total (minimum 0)
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `user_id`: DataRequired
+- `school_id`: DataRequired
+- `score`: DataRequired, NumberRange(min=0)
+
+See source: `app/admin/forms.py:396-417`
+
+## Authentication Forms
+
+Forms for user authentication including login and registration.
+
+Source: `app/auth/forms.py`
+
+### LoginForm
+
+Form for user login authentication.
+
+```python
+from app.auth.forms import LoginForm
+
+form = LoginForm()
+if form.validate_on_submit():
+    user = User.query.filter_by(email=form.email.data).first()
+    if user and user.check_password(form.password.data):
+        login_user(user, remember=form.remember_me.data)
+```
+
+**Fields:**
+- `email` (StringField): User's email address
+- `password` (PasswordField): User's password
+- `remember_me` (BooleanField): Option to maintain user session
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `email`: DataRequired, Email
+- `password`: DataRequired
+
+See source: `app/auth/forms.py:39-62`
+
+### RegistrationForm
+
+Form for creating a new user account.
+
+```python
+from app.auth.forms import RegistrationForm
+
+form = RegistrationForm()
+if form.validate_on_submit():
+    user = User(
+        first_name=form.first_name.data,
+        last_name=form.last_name.data,
+        email=form.email.data,
+        year=form.year.data,
+        maths_class=form.maths_class.data
+    )
+    user.set_password(form.password.data)
+```
+
+**Fields:**
+- `first_name` (StringField): User's first name
+- `last_name` (StringField): User's last name
+- `email` (StringField): School email address
+- `year` (SelectField): Academic year (7-13)
+- `password` (PasswordField): User's chosen password
+- `password2` (PasswordField): Password confirmation
+- `maths_class` (StringField): User's mathematics class
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `first_name`: DataRequired
+- `last_name`: DataRequired
+- `email`: DataRequired, Email, custom validation
+- `year`: DataRequired
+- `password`: DataRequired
+- `password2`: DataRequired, EqualTo('password')
+- `maths_class`: DataRequired
+
+**Custom Validation:**
+- `validate_email()`: Ensures email ends with '@uptoncourtgrammar.org.uk' and is not already registered
+
+See source: `app/auth/forms.py:65-122`
+
+### SummerRegistrationForm
+
+Form for summer competition registration.
+
+```python
+from app.auth.forms import SummerRegistrationForm
+
+form = SummerRegistrationForm()
+if form.validate_on_submit():
+    user = User(
+        first_name=form.first_name.data,
+        last_name=form.last_name.data,
+        email=form.email.data,
+        year=form.year.data,
+        school_id=form.school_id.data,
+        is_competition_participant=True
+    )
+    user.set_password(form.password.data)
+```
+
+**Fields:**
+- `first_name` (StringField): User's first name
+- `last_name` (StringField): User's last name
+- `email` (StringField): Email address
+- `year` (SelectField): Academic year (7-13)
+- `school_id` (SelectField): User's school (dynamically populated)
+- `password` (PasswordField): User's chosen password
+- `password2` (PasswordField): Password confirmation
+- `accept_terms` (BooleanField): Agreement to competition terms
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- All standard fields: DataRequired
+- `email`: DataRequired, Email, custom validation
+- `password2`: EqualTo('password')
+- `accept_terms`: DataRequired
+
+**Custom Validation:**
+- `validate_email()`: Checks if email is already registered and validates against school's email domain
+
+**Note:** School choices are dynamically loaded from the database in `__init__`.
+
+See source: `app/auth/forms.py:124-207`
+
+### SummerLoginForm
+
+Form for summer competition login authentication.
+
+**Fields:**
+- `email` (StringField): Email address
+- `password` (PasswordField): User's password
+- `year` (SelectField): Academic year (7-13)
+- `school_id` (SelectField): User's school (dynamically populated)
+- `remember_me` (BooleanField): Option to maintain user session
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- `email`: DataRequired, Email
+- `password`: DataRequired
+- `year`: DataRequired
+- `school_id`: DataRequired
+
+**Note:** School choices are dynamically loaded from the database in `__init__`.
+
+See source: `app/auth/forms.py:209-246`
+
+## Profile Forms
+
+Forms for user profile management.
+
+Source: `app/profile/forms.py`
+
+### ChangePasswordForm
+
+Form for changing user account password.
+
+```python
+from app.profile.forms import ChangePasswordForm
+
+form = ChangePasswordForm()
+if form.validate_on_submit():
+    if current_user.check_password(form.current_password.data):
+        if form.new_password.data == form.confirm_password.data:
+            current_user.set_password(form.new_password.data)
+            db.session.commit()
+```
+
+**Fields:**
+- `current_password` (StringField): User's current password
+- `new_password` (StringField): User's chosen new password
+- `confirm_password` (StringField): Confirmation of new password
+- `submit` (SubmitField): Submit button
+
+**Validators:**
+- All fields: DataRequired
+
+**Additional Validation Required:**
+Route handlers should implement:
+1. Verify current password is correct
+2. Ensure new password meets complexity requirements
+3. Confirm new password is different from current password
+4. Verify new password matches confirmation
+
+See source: `app/profile/forms.py:35-62`
+
+## Custom Validators
+
+### validate_datetime_optional()
+
+Custom validator for optional datetime fields with cross-platform compatibility.
+
+```python
+from app.admin.forms import validate_datetime_optional
+
+release_at = DateTimeLocalField(
+    "Release Date", 
+    validators=[Optional(), validate_datetime_optional]
+)
+```
+
+**Supported Formats:**
+- `%Y-%m-%dT%H:%M` (HTML5 datetime-local)
+- `%Y-%m-%d %H:%M:%S`
+- `%Y-%m-%d %H:%M`
+
+**Behavior:**
+- Allows None for optional fields
+- Accepts datetime objects
+- Parses common datetime string formats
+- Raises ValidationError for invalid formats
+
+See source: `app/admin/forms.py:53-75`
+
+## Custom Field Types
+
+### CrossPlatformDateTimeField
+
+Enhanced DateTimeLocalField that works consistently across platforms.
+
+```python
+from app.admin.forms import CrossPlatformDateTimeField
+
+release_at = CrossPlatformDateTimeField(
+    "Release Date & Time",
+    validators=[Optional(), validate_datetime_optional]
+)
+```
+
+**Features:**
+- Handles multiple datetime formats
+- Cross-platform compatibility
+- Graceful fallback for parsing failures
+
+**Supported Formats:**
+- `%Y-%m-%dT%H:%M` (HTML5 datetime-local)
+- `%Y-%m-%d %H:%M:%S`
+- `%Y-%m-%d %H:%M`
+- `%m/%d/%Y %H:%M`
+
+See source: `app/admin/forms.py:78-103`
+
+## Usage Examples
+
+### Challenge Creation
+
+```python
+from app.admin.forms import ChallengeForm
+from flask import render_template, redirect, url_for
+
+@app.route('/admin/challenge/new', methods=['GET', 'POST'])
+def new_challenge():
+    form = ChallengeForm()
+    if form.validate_on_submit():
+        challenge = Challenge(
+            title=form.title.data,
+            content=form.content.data,
+            key_stage=form.key_stage.data
+        )
+        # Handle image upload
+        if form.image.data:
+            filename = save_image(form.image.data)
+            challenge.image_filename = filename
+        
+        db.session.add(challenge)
+        db.session.commit()
+        return redirect(url_for('admin.challenges'))
+    
+    return render_template('admin/challenge_form.html', form=form)
+```
+
+### User Registration
+
+```python
+from app.auth.forms import RegistrationForm
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User(
+            first_name=form.first_name.data,
+            last_name=form.last_name.data,
+            email=form.email.data,
+            year=form.year.data,
+            maths_class=form.maths_class.data
+        )
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        
+        login_user(user)
+        return redirect(url_for('main.index'))
+    
+    return render_template('auth/register.html', form=form)
+```
+
+### Dynamic Field Population
+
+```python
+from app.admin.forms import EditUserForm
+
+@app.route('/admin/user/<int:id>/edit', methods=['GET', 'POST'])
+def edit_user(id):
+    user = User.query.get_or_404(id)
+    form = EditUserForm(obj=user)
+    
+    # School choices are populated in __init__
+    # Set current value if editing
+    if request.method == 'GET' and user.school_id:
+        form.school_id.data = user.school_id
+    
+    if form.validate_on_submit():
+        form.populate_obj(user)
+        db.session.commit()
+        return redirect(url_for('admin.users'))
+    
+    return render_template('admin/edit_user.html', form=form, user=user)
+```

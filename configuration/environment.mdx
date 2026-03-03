@@ -1,0 +1,154 @@
+---
+title: Environment Variables
+description: Configure your Maths Society Platform instance using environment variables
+---
+
+The Maths Society Platform uses environment variables for configuration. All configuration is loaded from a `.env` file in your project root using python-dotenv.
+
+## Core Settings
+
+<ParamField path="SECRET_KEY" type="string" required>
+  Secret key for session encryption and CSRF protection. 
+  
+  <Warning>
+    **Required in production.** Use a strong, randomly generated value. Never commit this to version control.
+  </Warning>
+  
+  If not set, the application will generate a random key using `os.urandom(24)`, but this will change on every restart.
+  
+  **Example:**
+  ```bash
+  SECRET_KEY=your-very-secret-random-key-here
+  ```
+</ParamField>
+
+## Environment Detection
+
+The platform supports multiple ways to indicate the running environment. Any of these variables can be used:
+
+<ParamField path="FLASK_ENV" type="string" default="development">
+  Flask environment mode.
+  
+  **Options:**
+  - `development` - Development mode with debug enabled
+  - `testing` - Testing mode with in-memory database
+  - `production` - Production mode with security hardening
+  
+  **Example:**
+  ```bash
+  FLASK_ENV=production
+  ```
+</ParamField>
+
+<ParamField path="APP_ENVIRONMENT" type="string" default="development">
+  Alternative environment indicator. Use if your deployment platform sets this instead of `FLASK_ENV`.
+  
+  **Options:** `development`, `testing`, `production`
+  
+  **Example:**
+  ```bash
+  APP_ENVIRONMENT=production
+  ```
+</ParamField>
+
+<ParamField path="ENV" type="string" default="dev">
+  Short-form environment indicator.
+  
+  **Options:**
+  - `dev` - Development
+  - `prod` - Production
+  
+  **Example:**
+  ```bash
+  ENV=prod
+  ```
+</ParamField>
+
+<Note>
+  The application is considered to be in **production mode** if any of these conditions are met:
+  - `FLASK_ENV=production`
+  - `APP_ENVIRONMENT=production`
+  - `ENV=prod`
+</Note>
+
+## Logging Configuration
+
+<ParamField path="LOG_TO_STDOUT" type="boolean" default="false">
+  Enable logging to standard output instead of file-based logging.
+  
+  Set to `true` when deploying to platforms that capture stdout (like Heroku, Docker, or Kubernetes).
+  
+  **Example:**
+  ```bash
+  LOG_TO_STDOUT=true
+  ```
+  
+  When `false`, logs are written to `app.log` in the project root.
+</ParamField>
+
+## File Upload Settings
+
+<ParamField path="UPLOAD_FOLDER" type="path" default="app/static/uploads">
+  Directory for user-uploaded files (PDFs, images, etc.).
+  
+  <Note>
+    This is set automatically by the configuration class and typically doesn't need to be overridden.
+  </Note>
+  
+  The default location is `app/static/uploads` relative to the project root.
+</ParamField>
+
+## Complete Example
+
+Here's a complete `.env` file example:
+
+```bash
+# Security
+SECRET_KEY=your-super-secret-key-change-this-in-production
+
+# Database (see Database Configuration page for details)
+DATABASE_TYPE=postgresql
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_NAME=mathsoc
+
+# Environment
+FLASK_ENV=development
+APP_ENVIRONMENT=development
+ENV=dev
+
+# Logging
+LOG_TO_STDOUT=false
+```
+
+## Configuration Class Reference
+
+The platform uses different configuration classes based on the environment:
+
+| Environment | Debug | Database | CSP unsafe-eval | Rate Limiting | CSRF |
+|-------------|-------|----------|-----------------|---------------|------|
+| **Development** | Enabled | PostgreSQL or SQLite | Allowed | Enabled | Enabled |
+| **Testing** | Disabled | In-memory SQLite | Allowed | Disabled | Disabled |
+| **Production** | Disabled | PostgreSQL (recommended) | Blocked | Enabled | Enabled |
+
+<Warning>
+  In production mode:
+  - Debug mode is disabled
+  - HTTPS is enforced via Talisman
+  - CSP `unsafe-eval` is blocked by default
+  - Rate limiting is active
+  - Strict security headers are applied
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Configuration" icon="database" href="/configuration/database">
+    Configure PostgreSQL or SQLite database connections
+  </Card>
+  
+  <Card title="Security Settings" icon="shield" href="/configuration/security">
+    Learn about CSP, Talisman, and rate limiting configuration
+  </Card>
+</CardGroup>

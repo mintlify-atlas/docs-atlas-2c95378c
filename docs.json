@@ -1,122 +1,122 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Maths Society Platform",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2E7D32",
+    "light": "#66BB6A",
+    "dark": "#1B5E20"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/yousuf-shahzad/maths-soc-source"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/yousuf-shahzad/maths-soc-source"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/challenges",
+              "features/leaderboards",
+              "features/summer-competition",
+              "features/articles-newsletters",
+              "features/user-management"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Configuration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "configuration/environment",
+              "configuration/database",
+              "configuration/security"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Architecture",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "architecture/overview",
+              "architecture/database-models",
+              "architecture/blueprints",
+              "architecture/math-engine"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Deployment",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Setup",
             "pages": [
-              "api-reference/introduction"
+              "deployment/production",
+              "deployment/migrations",
+              "deployment/monitoring"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Admin Guide",
+        "groups": [
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/user-management",
+              "admin/challenge-management",
+              "admin/competition-setup",
+              "admin/content-management"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Routes",
+            "pages": [
+              "api/auth",
+              "api/challenges",
+              "api/leaderboards",
+              "api/admin"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Models",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/models/user",
+              "api/models/challenge",
+              "api/models/submission",
+              "api/models/leaderboard"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/math-engine",
+              "api/utils/forms"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

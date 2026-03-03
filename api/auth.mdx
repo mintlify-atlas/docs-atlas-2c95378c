@@ -1,0 +1,254 @@
+---
+title: 'Authentication Routes'
+description: 'User authentication and registration endpoints'
+---
+
+## Overview
+
+Authentication routes handle user login, registration, and logout operations. All routes include rate limiting for security.
+
+---
+
+## Login
+
+<ParamField path="/login" type="GET | POST">
+  Handle user login process
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute;20 per hour", methods=["POST"])
+```
+
+**Authentication:** None required
+
+**Parameters:**
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+<ParamField body="remember_me" type="boolean">
+  Whether to remember the user's session
+</ParamField>
+
+**Returns:**
+- On success: Redirects to `main.home`
+- On failure: Redirects back to login with error message
+- For authenticated users: Redirects to `main.home`
+
+**Rate Limits:**
+- POST requests: 5 per minute, 20 per hour per IP
+
+---
+
+## Register
+
+<ParamField path="/register" type="GET | POST">
+  Handle user registration process
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/register", methods=["GET", "POST"])
+@limiter.limit("3 per minute;10 per hour", methods=["POST"])
+```
+
+**Authentication:** None required
+
+**Parameters:**
+
+<ParamField body="first_name" type="string" required>
+  User's first name (no whitespace allowed)
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  User's last name (no whitespace allowed)
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be unique, no whitespace)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (will be hashed)
+</ParamField>
+
+<ParamField body="year" type="string" required>
+  School year (7, 8, 9, 10, 11, 12, or 13)
+</ParamField>
+
+<ParamField body="maths_class" type="string" required>
+  User's maths class
+</ParamField>
+
+**Validation:**
+- Names and email are checked for profanity
+- Email must be unique in the database
+- Whitespace is not allowed in names or email
+- Year is mapped to key stage automatically:
+  - Years 7-8: KS3
+  - Years 9-11: KS4
+  - Years 12-13: KS5
+
+**Returns:**
+- On success: Redirects to `auth.login` with success message
+- On failure: Redirects back to register with error message
+
+**Rate Limits:**
+- POST requests: 3 per minute, 10 per hour per IP
+
+---
+
+## Admin Registration
+
+<ParamField path="/register_admin" type="GET | POST">
+  Handle admin user registration (disabled in production)
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/register_admin", methods=["GET", "POST"])
+@limiter.limit("2 per minute;5 per hour", methods=["POST"])
+```
+
+**Availability:** Only available in non-production environments
+
+**Authentication:** None required
+
+**Parameters:** Same as regular registration
+
+**Additional Behavior:**
+- Sets `is_admin=True` on created user
+- In production: Redirects to `main.home` with warning message
+
+**Rate Limits:**
+- POST requests: 2 per minute, 5 per hour per IP
+
+---
+
+## Autumn Competition Registration
+
+<ParamField path="/autumn_register" type="GET | POST">
+  Handle user registration for autumn competition
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/autumn_register", methods=["GET", "POST"])
+@limiter.limit("3 per minute;10 per hour", methods=["POST"])
+```
+
+**Authentication:** None required
+
+**Parameters:**
+
+<ParamField body="first_name" type="string" required>
+  User's first name
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  User's last name
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address (must be unique)
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+<ParamField body="year" type="string" required>
+  School year (7-13)
+</ParamField>
+
+<ParamField body="school_id" type="integer" required>
+  ID of the user's school (from School model)
+</ParamField>
+
+**Additional Behavior:**
+- Sets `is_competition_participant=True`
+- Assigns user to selected school
+- School choices populated from database
+
+**Returns:**
+- On success: Redirects to `auth.summer_login`
+- On failure: Redirects back with error message
+
+---
+
+## Autumn Competition Login
+
+<ParamField path="/autumn_login" type="GET | POST">
+  Handle login for autumn competition participants
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/autumn_login", methods=["GET", "POST"])
+@limiter.limit("5 per minute;20 per hour", methods=["POST"])
+```
+
+**Authentication:** None required
+
+**Parameters:**
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+<ParamField body="school_id" type="integer" required>
+  User's school ID (displayed in dropdown)
+</ParamField>
+
+<ParamField body="remember_me" type="boolean">
+  Whether to remember the session
+</ParamField>
+
+**Returns:**
+- On success: Redirects to `main.home`
+- On failure: Redirects to `auth.login` with error
+
+---
+
+## Logout
+
+<ParamField path="/logout" type="GET">
+  Handle user logout process
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/logout")
+```
+
+**Authentication:** None required (will logout current user if authenticated)
+
+**Parameters:** None
+
+**Returns:**
+- Always redirects to `main.home`
+- Terminates current user session via `logout_user()`
+
+---
+
+## Security Features
+
+All authentication routes implement:
+
+1. **Password Hashing:** Passwords are hashed before database storage
+2. **Profanity Filtering:** User names and emails checked using Better Profanity
+3. **Rate Limiting:** Per-IP limits on all POST endpoints
+4. **Duplicate Prevention:** Email uniqueness enforced
+5. **Whitespace Validation:** Names and emails must not contain spaces
+6. **Admin Protection:** Admin registration disabled in production

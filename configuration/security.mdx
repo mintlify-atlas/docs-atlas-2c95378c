@@ -1,0 +1,390 @@
+---
+title: Security Configuration
+description: Configure Content Security Policy, Talisman, rate limiting, and other security features
+---
+
+The Maths Society Platform includes multiple security layers to protect against common web vulnerabilities.
+
+## Security Overview
+
+The platform implements:
+
+- **Flask-Talisman** - HTTPS enforcement and security headers
+- **Content Security Policy (CSP)** - XSS protection
+- **Flask-Limiter** - Rate limiting for API and routes
+- **Flask-Login** - Session management and authentication
+- **WTForms CSRF** - Cross-site request forgery protection
+- **ProxyFix** - Correct header handling behind proxies
+
+## Flask-Talisman
+
+Talisman enforces HTTPS and sets security headers automatically.
+
+### Configuration
+
+<ParamField path="force_https" type="boolean" default="environment-dependent">
+  HTTPS enforcement setting.
+  
+  **Behavior:**
+  - **Production:** `true` (HTTPS required)
+  - **Development:** `false` (HTTP allowed)
+  - **Testing:** `false` (HTTP allowed)
+  
+  <Warning>
+    In production, all HTTP requests are redirected to HTTPS. Ensure your deployment platform supports HTTPS.
+  </Warning>
+</ParamField>
+
+<ParamField path="strict_transport_security" type="boolean" default="true">
+  Enables HTTP Strict Transport Security (HSTS).
+  
+  When enabled, browsers will only connect via HTTPS for the specified duration.
+  
+  **Headers set:**
+  ```
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  ```
+</ParamField>
+
+### Security Headers
+
+Talisman automatically sets these headers:
+
+| Header | Value | Purpose |
+|--------|-------|----------|
+| `X-Frame-Options` | `SAMEORIGIN` | Prevents clickjacking |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME sniffing |
+| `X-XSS-Protection` | `1; mode=block` | Legacy XSS protection |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer info |
+
+## Content Security Policy (CSP)
+
+CSP prevents XSS attacks by controlling which resources can load on your pages.
+
+### CSP Directives
+
+The platform uses a comprehensive CSP that allows required third-party resources:
+
+<ParamField path="default-src" type="array" default="['self']">
+  Default policy for all resource types.
+  
+  Only allows resources from the same origin.
+</ParamField>
+
+<ParamField path="script-src" type="array">
+  Controls JavaScript sources.
+  
+  **Allowed sources:**
+  - `'self'` - Same origin scripts
+  - `'unsafe-inline'` - Inline scripts (required for some libraries)
+  - `'unsafe-eval'` - eval() usage (dev/testing only, see below)
+  - `https://cdn.jsdelivr.net` - CDN for libraries
+  - `https://cdnjs.cloudflare.com` - Cloudflare CDN
+  - `https://unpkg.com` - NPM package CDN
+  - `https://cdn.ckeditor.com` - CKEditor assets
+  - `https://polyfill.io` - Browser polyfills
+  
+  <Warning>
+    `'unsafe-inline'` is required for CKEditor and some inline event handlers. Consider using nonces in future updates.
+  </Warning>
+</ParamField>
+
+<ParamField path="CSP_ALLOW_UNSAFE_EVAL" type="boolean" default="environment-dependent">
+  Controls whether `'unsafe-eval'` is allowed in script-src.
+  
+  **Behavior:**
+  - **Development:** `true` (allowed - CKEditor 4 needs this)
+  - **Testing:** `true` (allowed)
+  - **Production:** `false` (blocked by default)
+  
+  <Note>
+    CKEditor 4 and MathLive use `eval()` and `new Function()`. If you need these in production, set:
+    ```bash
+    CSP_ALLOW_UNSAFE_EVAL=true
+    ```
+  </Note>
+  
+  Set this in your `.env` file or override in `app/__init__.py`.
+</ParamField>
+
+<ParamField path="style-src" type="array">
+  Controls CSS sources.
+  
+  **Allowed sources:**
+  - `'self'`
+  - `'unsafe-inline'` - Required for inline styles
+  - CDNs: jsdelivr, cdnjs, Google Fonts, unpkg, CKEditor
+</ParamField>
+
+<ParamField path="font-src" type="array">
+  Controls font sources.
+  
+  **Allowed sources:**
+  - `'self'`
+  - `https://fonts.gstatic.com` - Google Fonts
+  - CDNs: cdnjs, unpkg, CKEditor
+  - `data:` - Data URIs for embedded fonts
+</ParamField>
+
+<ParamField path="img-src" type="array">
+  Controls image sources.
+  
+  **Allowed sources:**
+  - `'self'`
+  - `data:` - Data URIs (base64 images)
+  - `blob:` - Blob URLs (uploaded images)
+  - `https://cdn.ckeditor.com`
+</ParamField>
+
+<ParamField path="connect-src" type="array">
+  Controls AJAX, WebSocket, and fetch() endpoints.
+  
+  **Allowed sources:**
+  - `'self'`
+  - All CDNs used by the app
+  - `https://cke4.ckeditor.com` - CKEditor API
+  
+  **Dynamic additions:**
+  - Production domain (from `SERVER_NAME` config)
+</ParamField>
+
+<ParamField path="frame-ancestors" type="array" default="['self']">
+  Controls which sites can embed this app in iframes.
+  
+  Set to `'self'` to prevent embedding on other domains.
+</ParamField>
+
+<ParamField path="object-src" type="array" default="['none']">
+  Blocks plugins like Flash.
+  
+  Set to `'none'` for security.
+</ParamField>
+
+### Custom CSP Configuration
+
+To modify CSP, edit the `csp` dictionary in `app/__init__.py:121-158`:
+
+```python
+csp = {
+    'default-src': ["'self'"],
+    'script-src': script_src_common,
+    'style-src': ["'self'", "'unsafe-inline'"],
+    # Add your custom directives
+    'connect-src': ["'self'", "https://your-api.com"],
+}
+```
+
+## Rate Limiting
+
+Flask-Limiter protects against brute force and DoS attacks.
+
+### Default Limits
+
+Global rate limits applied to all routes:
+
+```python
+default_limits=["200 per day", "50 per hour"]
+```
+
+<ParamField path="RATELIMIT_ENABLED" type="boolean" default="true">
+  Enable or disable rate limiting globally.
+  
+  **Behavior:**
+  - **Development:** Enabled
+  - **Testing:** Disabled (for fast test execution)
+  - **Production:** Enabled
+  
+  **Override in .env:**
+  ```bash
+  RATELIMIT_ENABLED=false
+  ```
+</ParamField>
+
+<ParamField path="RATELIMIT_STORAGE_URI" type="string" default="memory://">
+  Backend storage for rate limit counters.
+  
+  **Options:**
+  - `memory://` - In-memory (default, lost on restart)
+  - `redis://localhost:6379` - Redis (recommended for production)
+  - `memcached://localhost:11211` - Memcached
+  
+  **Production example:**
+  ```bash
+  RATELIMIT_STORAGE_URI=redis://redis:6379/0
+  ```
+  
+  <Warning>
+    Using `memory://` in production with multiple workers will cause inconsistent rate limiting. Use Redis or Memcached.
+  </Warning>
+</ParamField>
+
+### Rate Limit Strategy
+
+<ParamField path="strategy" type="string" default="fixed-window">
+  Algorithm for counting requests.
+  
+  **Options:**
+  - `fixed-window` - Simple, fast
+  - `moving-window` - More accurate, higher overhead
+</ParamField>
+
+<ParamField path="key_func" type="function" default="get_remote_address">
+  Function to identify clients.
+  
+  Default uses the client's IP address from the request.
+</ParamField>
+
+### Custom Route Limits
+
+Override limits for specific routes using decorators:
+
+```python
+from app import limiter
+
+@app.route('/api/submit')
+@limiter.limit("10 per minute")
+def submit_answer():
+    # This route allows 10 requests per minute
+    pass
+
+@app.route('/api/public')
+@limiter.exempt
+def public_endpoint():
+    # This route has no rate limiting
+    pass
+```
+
+### Rate Limit Headers
+
+When `headers_enabled=True`, these headers are sent:
+
+```
+X-RateLimit-Limit: 50
+X-RateLimit-Remaining: 49
+X-RateLimit-Reset: 1640000000
+```
+
+## Proxy Configuration
+
+For deployments behind reverse proxies (Nginx, Apache, load balancers):
+
+```python
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+```
+
+This ensures:
+- Correct client IP detection for rate limiting
+- Proper HTTPS detection behind SSL terminators
+- Accurate host headers
+
+<Warning>
+  **Security risk:** Only enable ProxyFix when behind a trusted proxy. Set `x_for=1` only if you have exactly one proxy.
+</Warning>
+
+## CSRF Protection
+
+WTForms provides automatic CSRF protection for all forms.
+
+<ParamField path="WTF_CSRF_ENABLED" type="boolean" default="true">
+  Enable CSRF token validation.
+  
+  **Behavior:**
+  - **Development:** Enabled
+  - **Testing:** Disabled (for easier testing)
+  - **Production:** Enabled (required)
+  
+  All forms must include `{{ form.csrf_token }}` in templates.
+</ParamField>
+
+### CSRF Token Usage
+
+```html
+<form method="POST">
+    {{ form.csrf_token }}
+    {{ form.username }}
+    {{ form.password }}
+    <button type="submit">Login</button>
+</form>
+```
+
+## Health Check Endpoints
+
+Two endpoints for monitoring without authentication:
+
+<ParamField path="/healthz" type="endpoint">
+  Basic liveness check.
+  
+  **Response:**
+  ```json
+  {"status": "ok"}
+  ```
+  
+  Always returns 200 if the app is running.
+</ParamField>
+
+<ParamField path="/readyz" type="endpoint">
+  Readiness check with database connectivity.
+  
+  **Responses:**
+  ```json
+  {"status": "ready"}      // 200 - Database connected
+  {"status": "degraded"}   // 503 - Database unavailable
+  ```
+  
+  Use this for Kubernetes readiness probes.
+</ParamField>
+
+## Production Security Checklist
+
+<Check>
+- [ ] Set a strong `SECRET_KEY` environment variable
+- [ ] Use PostgreSQL instead of SQLite
+- [ ] Enable HTTPS on your hosting platform
+- [ ] Set `FLASK_ENV=production`
+- [ ] Configure `SERVER_NAME` for your domain
+- [ ] Use Redis for rate limiting (`RATELIMIT_STORAGE_URI`)
+- [ ] Review CSP directives for your needs
+- [ ] Enable `LOG_TO_STDOUT` if using Docker/Kubernetes
+- [ ] Set up database backups
+- [ ] Change default admin password from init_db.py
+- [ ] Review ProxyFix settings for your deployment
+- [ ] Test rate limiting with expected traffic
+</Check>
+
+## Troubleshooting
+
+### CSP Violations
+
+If resources are blocked:
+
+1. Check browser console for CSP errors
+2. Identify the blocked resource URL
+3. Add the domain to appropriate CSP directive in `app/__init__.py`
+
+### Rate Limit Issues
+
+If legitimate users are blocked:
+
+1. Check current limits in `app/__init__.py:21-26`
+2. Adjust limits for specific routes
+3. Consider using Redis for distributed rate limiting
+
+### HTTPS Redirect Loop
+
+If you see infinite redirects:
+
+1. Check if your proxy is terminating SSL
+2. Verify ProxyFix configuration
+3. Set `X-Forwarded-Proto` header on your proxy
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/configuration/environment">
+    Review all environment configuration options
+  </Card>
+  
+  <Card title="Database Configuration" icon="database" href="/configuration/database">
+    Set up secure database connections
+  </Card>
+</CardGroup>

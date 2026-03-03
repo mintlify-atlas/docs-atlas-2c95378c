@@ -1,0 +1,322 @@
+---
+title: 'Challenge and SummerChallenge'
+description: 'Regular and summer challenge models'
+---
+
+## Challenge
+
+The Challenge model represents regular mathematical challenges.
+
+**Table name:** `challenge`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="title" type="String(100)" required>
+  Challenge title (indexed)
+</ResponseField>
+
+<ResponseField name="content" type="Text" required>
+  Challenge description and instructions
+</ResponseField>
+
+<ResponseField name="date_posted" type="DateTime" default="datetime.datetime.now" required>
+  Publication timestamp (indexed)
+</ResponseField>
+
+<ResponseField name="file_url" type="String(100)">
+  Optional file attachment URL
+</ResponseField>
+
+<ResponseField name="key_stage" type="String(3)" required>
+  Educational key stage (indexed)
+</ResponseField>
+
+<ResponseField name="first_correct_submission" type="DateTime">
+  Timestamp of first correct answer
+</ResponseField>
+
+<ResponseField name="release_at" type="DateTime">
+  Scheduled release time (indexed, nullable)
+</ResponseField>
+
+<ResponseField name="is_manually_locked" type="Boolean" default="false" required>
+  Manual lock override flag
+</ResponseField>
+
+<ResponseField name="lock_after_hours" type="Integer">
+  Hours until automatic lock (nullable)
+</ResponseField>
+
+### Relationships
+
+<Expandable title="answer_boxes">
+  One-to-many relationship with `ChallengeAnswerBox`
+  
+  - Back populates: `challenge`
+  - Lazy loading: `dynamic`
+  - Cascade: `all, save-update`
+  - Order by: `ChallengeAnswerBox.order`
+</Expandable>
+
+<Expandable title="submissions">
+  One-to-many relationship with `AnswerSubmission`
+  
+  - Back populates: `challenge`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Properties
+
+<ResponseField name="is_locked" type="property">
+  ```python
+  @property
+  def is_locked(self) -> bool
+  ```
+  
+  Check if challenge is locked (manually or by time)
+  
+  **Logic:**
+  1. Returns `True` if `is_manually_locked` is set
+  2. If `lock_after_hours` and `release_at` are set, returns `True` if current time exceeds `release_at + lock_after_hours`
+  3. Otherwise returns `False`
+  
+  **Returns:**
+  - `bool`: Lock status
+</ResponseField>
+
+---
+
+## ChallengeAnswerBox
+
+Represents individual answer inputs for multi-part challenges.
+
+**Table name:** `challenge_answer_box`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="challenge_id" type="Integer" required>
+  Foreign key to `challenge.id` (indexed)
+</ResponseField>
+
+<ResponseField name="box_label" type="String(100)" required>
+  Display label (e.g., "Part A", "Step 1")
+</ResponseField>
+
+<ResponseField name="correct_answer" type="String(100)" required>
+  The correct answer value
+</ResponseField>
+
+<ResponseField name="order" type="Integer" required>
+  Display order within challenge
+</ResponseField>
+
+### Relationships
+
+<Expandable title="challenge">
+  Many-to-one relationship with `Challenge`
+  
+  - Back populates: `answer_boxes`
+</Expandable>
+
+<Expandable title="submissions">
+  One-to-many relationship with `AnswerSubmission`
+  
+  - Back populates: `answer_box`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Indexes
+
+- Composite index: `ix_challenge_answer_box_challenge_order` on (`challenge_id`, `order`)
+
+### Methods
+
+<ResponseField name="check_answer" type="method">
+  ```python
+  def check_answer(self, submitted_answer: str) -> bool
+  ```
+  
+  Check if submitted answer is correct using mathematical expression comparison or string matching
+  
+  **Logic:**
+  1. Attempts mathematical expression comparison using `compare_mathematical_expressions` utility
+  2. Falls back to case-insensitive string comparison if mathematical comparison fails
+  
+  **Parameters:**
+  - `submitted_answer` (str): User's submitted answer
+  
+  **Returns:**
+  - `bool`: True if correct, False otherwise
+</ResponseField>
+
+---
+
+## SummerChallenge
+
+The SummerChallenge model represents time-limited summer competition challenges.
+
+**Table name:** `summer_challenge`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="title" type="String(100)" required>
+  Challenge title (indexed)
+</ResponseField>
+
+<ResponseField name="content" type="Text" required>
+  Challenge description and instructions
+</ResponseField>
+
+<ResponseField name="date_posted" type="DateTime" default="datetime.datetime.now" required>
+  Publication timestamp
+</ResponseField>
+
+<ResponseField name="duration_hours" type="Integer" default="24" required>
+  Challenge duration in hours
+</ResponseField>
+
+<ResponseField name="file_url" type="String(100)">
+  Optional file attachment URL
+</ResponseField>
+
+<ResponseField name="key_stage" type="String(3)" required>
+  Educational key stage (indexed)
+</ResponseField>
+
+<ResponseField name="is_manually_locked" type="Boolean" default="false" required>
+  Manual lock override flag
+</ResponseField>
+
+<ResponseField name="release_at" type="DateTime">
+  Scheduled release time (indexed, nullable)
+</ResponseField>
+
+### Relationships
+
+<Expandable title="answer_boxes">
+  One-to-many relationship with `SummerChallengeAnswerBox`
+  
+  - Back populates: `challenge`
+  - Lazy loading: `dynamic`
+  - Cascade: `all, delete-orphan`
+  - Order by: `SummerChallengeAnswerBox.order`
+</Expandable>
+
+<Expandable title="submissions">
+  One-to-many relationship with `SummerSubmission`
+  
+  - Back populates: `challenge`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Properties
+
+<ResponseField name="is_locked" type="property">
+  ```python
+  @property
+  def is_locked(self) -> bool
+  ```
+  
+  Check if challenge is locked
+  
+  **Logic:**
+  - Returns `True` if `is_manually_locked` is set OR current time exceeds `date_posted + duration_hours`
+  
+  **Returns:**
+  - `bool`: Lock status
+</ResponseField>
+
+<ResponseField name="lock_reason" type="property">
+  ```python
+  @property
+  def lock_reason(self) -> str | None
+  ```
+  
+  Returns the reason why the challenge is locked
+  
+  **Returns:**
+  - `"manually_locked"`: If `is_manually_locked` is True
+  - `"time_expired"`: If current time exceeds `date_posted + duration_hours`
+  - `None`: If challenge is not locked
+</ResponseField>
+
+---
+
+## SummerChallengeAnswerBox
+
+Represents individual answer inputs for multi-part summer challenges.
+
+**Table name:** `summer_challenge_answer_box`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="challenge_id" type="Integer" required>
+  Foreign key to `summer_challenge.id` (indexed)
+</ResponseField>
+
+<ResponseField name="box_label" type="String(100)" required>
+  Display label (e.g., "Part A", "Question 1")
+</ResponseField>
+
+<ResponseField name="correct_answer" type="String(100)" required>
+  The correct answer value
+</ResponseField>
+
+<ResponseField name="order" type="Integer" required>
+  Display order within challenge
+</ResponseField>
+
+### Relationships
+
+<Expandable title="challenge">
+  Many-to-one relationship with `SummerChallenge`
+  
+  - Back populates: `answer_boxes`
+</Expandable>
+
+<Expandable title="submissions">
+  One-to-many relationship with `SummerSubmission`
+  
+  - Back populates: `answer_box`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+### Indexes
+
+- Composite index: `ix_summer_answer_box_challenge_order` on (`challenge_id`, `order`)
+
+### Methods
+
+<ResponseField name="check_answer" type="method">
+  ```python
+  def check_answer(self, submitted_answer: str) -> bool
+  ```
+  
+  Check if submitted answer is correct using mathematical expression comparison or string matching
+  
+  **Logic:**
+  1. Attempts mathematical expression comparison using `compare_mathematical_expressions` utility
+  2. Falls back to case-insensitive string comparison if mathematical comparison fails
+  
+  **Parameters:**
+  - `submitted_answer` (str): User's submitted answer
+  
+  **Returns:**
+  - `bool`: True if correct, False otherwise
+</ResponseField>

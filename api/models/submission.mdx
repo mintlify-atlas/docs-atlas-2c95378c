@@ -1,0 +1,148 @@
+---
+title: 'AnswerSubmission and SummerSubmission'
+description: 'Submission records for regular and summer challenges'
+---
+
+## AnswerSubmission
+
+The AnswerSubmission model tracks user answers to regular challenges.
+
+**Table name:** `answer_submission`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key to `users.id` (indexed)
+</ResponseField>
+
+<ResponseField name="challenge_id" type="Integer" required>
+  Foreign key to `challenge.id` (indexed)
+</ResponseField>
+
+<ResponseField name="answer_box_id" type="Integer" required>
+  Foreign key to `challenge_answer_box.id` (indexed)
+</ResponseField>
+
+<ResponseField name="answer" type="String(100)" required>
+  User's submitted answer
+</ResponseField>
+
+<ResponseField name="is_correct" type="Boolean">
+  Whether the answer was correct (nullable)
+</ResponseField>
+
+<ResponseField name="submitted_at" type="DateTime" default="datetime.datetime.now" required>
+  Submission timestamp (indexed)
+</ResponseField>
+
+### Relationships
+
+<Expandable title="user">
+  Many-to-one relationship with `User`
+  
+  - Back populates: `submissions`
+</Expandable>
+
+<Expandable title="challenge">
+  Many-to-one relationship with `Challenge`
+  
+  - Back populates: `submissions`
+</Expandable>
+
+<Expandable title="answer_box">
+  Many-to-one relationship with `ChallengeAnswerBox`
+  
+  - Back populates: `submissions`
+</Expandable>
+
+### Indexes
+
+Composite indexes for optimized query patterns:
+
+- `ix_answer_submission_user_challenge` on (`user_id`, `challenge_id`)
+- `ix_answer_submission_challenge_submitted` on (`challenge_id`, `submitted_at`)
+
+---
+
+## SummerSubmission
+
+The SummerSubmission model tracks user answers to summer competition challenges.
+
+**Table name:** `summer_submission`
+
+### Fields
+
+<ResponseField name="id" type="Integer" required>
+  Primary key, auto-incrementing
+</ResponseField>
+
+<ResponseField name="user_id" type="Integer" required>
+  Foreign key to `users.id` (indexed)
+</ResponseField>
+
+<ResponseField name="school_id" type="Integer" required>
+  Foreign key to `school.id` (indexed)
+</ResponseField>
+
+<ResponseField name="challenge_id" type="Integer" required>
+  Foreign key to `summer_challenge.id` (indexed)
+</ResponseField>
+
+<ResponseField name="answer_box_id" type="Integer" required>
+  Foreign key to `summer_challenge_answer_box.id` (indexed)
+</ResponseField>
+
+<ResponseField name="answer" type="String(100)" required>
+  User's submitted answer
+</ResponseField>
+
+<ResponseField name="is_correct" type="Boolean">
+  Whether the answer was correct (nullable)
+</ResponseField>
+
+<ResponseField name="submitted_at" type="DateTime" default="datetime.datetime.now" required>
+  Submission timestamp (indexed)
+</ResponseField>
+
+<ResponseField name="points_awarded" type="Integer" default="0" required>
+  Points awarded for this submission
+</ResponseField>
+
+### Relationships
+
+<Expandable title="user">
+  Many-to-one relationship with `User` (via backref)
+  
+  - Backref: `summer_submissions`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="school">
+  Many-to-one relationship with `School` (via backref)
+  
+  - Backref: `summer_submissions`
+  - Lazy loading: `dynamic`
+</Expandable>
+
+<Expandable title="challenge">
+  Many-to-one relationship with `SummerChallenge`
+  
+  - Back populates: `submissions`
+</Expandable>
+
+<Expandable title="answer_box">
+  Many-to-one relationship with `SummerChallengeAnswerBox`
+  
+  - Back populates: `submissions`
+</Expandable>
+
+### Indexes
+
+Composite indexes for optimized query patterns:
+
+- `ix_summer_submission_user_challenge` on (`user_id`, `challenge_id`)
+- `ix_summer_submission_school_points` on (`school_id`, `points_awarded`)

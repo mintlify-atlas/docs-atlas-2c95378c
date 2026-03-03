@@ -1,0 +1,337 @@
+---
+title: 'Articles & Newsletters'
+description: 'Educational content, news, and updates from the Maths Society'
+icon: 'newspaper'
+---
+
+## Overview
+
+The Maths Society Platform provides two types of content to keep students informed and engaged: **Articles** and **Newsletters**. Both are managed through a unified content system but serve different purposes.
+
+## Content Types
+
+<CardGroup cols={2}>
+  <Card title="Articles" icon="file-lines">
+    Educational content, problem-solving guides, mathematical topics, and student features
+  </Card>
+  
+  <Card title="Newsletters" icon="envelope">
+    Regular updates, announcements, competition results, and society news distributed periodically
+  </Card>
+</CardGroup>
+
+## Articles
+
+### What Are Articles?
+
+Articles are educational content pieces that:
+- Explore mathematical concepts in depth
+- Provide problem-solving strategies
+- Feature student achievements
+- Discuss mathematical topics beyond the curriculum
+- Offer study tips and exam guidance
+
+### Article Structure
+
+Each article includes:
+
+<AccordionGroup>
+  <Accordion title="Title">
+    Clear, descriptive heading summarizing the topic
+  </Accordion>
+  
+  <Accordion title="Content">
+    Rich text with mathematical notation, explanations, and examples
+  </Accordion>
+  
+  <Accordion title="Author Attribution">
+    Shows either:
+    - User account of the administrator who posted it
+    - Named creator (for external contributors or students)
+  </Accordion>
+  
+  <Accordion title="Publication Date">
+    Timestamp showing when the article was posted
+  </Accordion>
+  
+  <Accordion title="Optional PDF">
+    Downloadable file for offline reading or additional materials
+  </Accordion>
+</AccordionGroup>
+
+### Browsing Articles
+
+The Articles page displays:
+- All articles sorted by most recent first
+- Article titles and publication dates
+- Preview of content or excerpt
+- Author information
+
+<Note>
+Articles remain available indefinitely unless removed by administrators, building a permanent resource library.
+</Note>
+
+### Reading Articles
+
+Click on any article to:
+1. View the full content
+2. See detailed author information
+3. Access any attached PDF files
+4. Read the complete publication date and time
+
+## Newsletters
+
+### What Are Newsletters?
+
+Newsletters are periodic publications containing:
+- Platform updates and announcements
+- Competition results and highlights
+- Upcoming events and important dates
+- Featured challenges and solutions
+- Community news and student spotlights
+
+### Newsletter Features
+
+<CardGroup cols={2}>
+  <Card title="PDF Format" icon="file-pdf">
+    Newsletters are primarily distributed as downloadable PDF files
+  </Card>
+  
+  <Card title="Web Preview" icon="browser">
+    Text content displayed on the platform for easy browsing
+  </Card>
+  
+  <Card title="Chronological Archive" icon="clock-rotate-left">
+    Past newsletters remain accessible for reference
+  </Card>
+  
+  <Card title="Homepage Feature" icon="star">
+    Latest newsletter highlighted on the homepage
+  </Card>
+</CardGroup>
+
+### Accessing Newsletters
+
+#### Newsletter List Page
+
+The Newsletters page shows:
+- All newsletters in reverse chronological order (newest first)
+- Newsletter titles and publication dates
+- Quick links to view each newsletter
+
+#### Individual Newsletter View
+
+Each newsletter displays:
+- Full title
+- Publication date
+- Text content summary
+- Download link for PDF version
+
+#### Homepage Display
+
+The homepage features:
+- **Latest Newsletter**: Most recent newsletter automatically displayed
+- Direct link to view full content
+- Quick access to newsletter archive
+
+<Note>
+Newsletters are uploaded and served from a dedicated directory, ensuring reliable access to PDF files.
+</Note>
+
+## Content Management System
+
+### Database Structure
+
+Both articles and newsletters are stored in the same `Article` model with a type field:
+
+- **type = "article"**: Regular educational articles
+- **type = "newsletter"**: Newsletter publications
+
+This unified structure allows:
+- Consistent content management
+- Shared search and filtering
+- Efficient database queries
+
+### Fields Tracked
+
+<AccordionGroup>
+  <Accordion title="Title">
+    The headline or name of the content piece
+  </Accordion>
+  
+  <Accordion title="Content">
+    Main text body with formatting support
+  </Accordion>
+  
+  <Accordion title="File URL">
+    Path to attached PDF file (especially for newsletters)
+  </Accordion>
+  
+  <Accordion title="Named Creator">
+    Optional field for crediting specific authors or contributors
+  </Accordion>
+  
+  <Accordion title="Date Posted">
+    Automatic timestamp when content is published
+  </Accordion>
+  
+  <Accordion title="User ID">
+    Administrator who published the content
+  </Accordion>
+  
+  <Accordion title="Type">
+    Distinguishes between articles and newsletters
+  </Accordion>
+</AccordionGroup>
+
+## Homepage Integration
+
+### Recent Articles
+
+The homepage displays:
+- **3 most recent articles**
+- Quick preview to drive engagement
+- Links to full article pages
+
+### Latest Newsletter
+
+Homepage features:
+- **Single latest newsletter** in dedicated section
+- Prominent placement for visibility
+- Direct link to full newsletter content
+
+This ensures students always see fresh content when they log in.
+
+## Navigation and Discovery
+
+### Main Navigation
+
+Access content through:
+- **Articles Link**: Browse all educational articles
+- **Newsletters Link**: View newsletter archive
+- **Homepage**: See latest of both types
+
+### Content Filtering
+
+The platform automatically:
+- Separates articles from newsletters in listings
+- Prevents newsletters from appearing in article browsing (and vice versa)
+- Returns 404 errors if you try to view an article as a newsletter or vice versa
+
+<Warning>
+Articles and newsletters have separate viewing URLs. Attempting to view a newsletter at an article URL (or vice versa) will result in a "not found" error.
+</Warning>
+
+## PDF File Management
+
+### Newsletter PDFs
+
+Newsletters use a dedicated file system:
+- Stored in `uploads/newsletters/` directory
+- Served through secure file delivery route
+- Filename tracked in database
+- Download links generated dynamically
+
+### Article PDFs
+
+Articles can also include PDF attachments:
+- Optional supplementary materials
+- Diagrams, worksheets, or extended content
+- Referenced via file_url field
+
+<Note>
+PDF files are served directly through the platform with proper content type headers for browser display or download.
+</Note>
+
+## Author Attribution
+
+### User-Based Attribution
+
+Content is linked to the administrator who posted it via `user_id`, establishing:
+- Accountability for published content
+- Relationship between users and their articles
+- Query capabilities for finding content by author
+
+### Named Creator Field
+
+The optional `named_creator` field allows:
+- Crediting external contributors
+- Featuring student authors
+- Recognizing guest writers
+- Providing additional attribution context
+
+This supports collaborative content while maintaining administrative control.
+
+## Content Lifecycle
+
+<Steps>
+  <Step title="Creation">
+    Administrators create articles or newsletters through the admin panel
+  </Step>
+  
+  <Step title="Publication">
+    Content is saved with automatic timestamp and assigned type
+  </Step>
+  
+  <Step title="Display">
+    Content appears in appropriate listing (articles or newsletters)
+  </Step>
+  
+  <Step title="Homepage Feature">
+    Recent articles and latest newsletter display on homepage
+  </Step>
+  
+  <Step title="Archive">
+    Content remains accessible indefinitely unless removed
+  </Step>
+</Steps>
+
+## Best Practices for Users
+
+<AccordionGroup>
+  <Accordion title="Check Regularly">
+    Visit the articles and newsletters pages frequently to stay updated on new content.
+  </Accordion>
+  
+  <Accordion title="Download PDFs">
+    Save newsletter PDFs for offline reading and future reference.
+  </Accordion>
+  
+  <Accordion title="Read Featured Content">
+    Don't miss the latest newsletter and recent articles highlighted on the homepage.
+  </Accordion>
+  
+  <Accordion title="Explore the Archive">
+    Browse past articles and newsletters to discover valuable educational resources.
+  </Accordion>
+</AccordionGroup>
+
+## Integration with Other Features
+
+### Announcements
+
+While separate from articles and newsletters, announcements also appear on the homepage:
+- **Latest Announcement**: Urgent or timely information
+- Separate database model for different use case
+- Complementary to newsletter content
+
+### Challenge Context
+
+Articles may reference or explain:
+- Challenge-solving techniques
+- Mathematical concepts used in challenges
+- Competition results and highlights
+
+This creates a rich learning ecosystem around the challenge system.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="View Challenges" icon="puzzle-piece" href="/features/challenges">
+    Apply knowledge from articles to solve mathematical challenges
+  </Card>
+  
+  <Card title="Check Leaderboards" icon="ranking-star" href="/features/leaderboards">
+    See if your achievements are featured in newsletter highlights
+  </Card>
+</CardGroup>

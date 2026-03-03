@@ -1,0 +1,193 @@
+---
+title: Introduction
+description: Welcome to the Maths Society Platform - A comprehensive SaaS solution for school math societies
+---
+
+<img
+  className="block dark:hidden"
+  src="/images/hero-light.svg"
+  alt="Hero Light"
+/>
+<img
+  className="hidden dark:block"
+  src="/images/hero-dark.svg"
+  alt="Hero Dark"
+/>
+
+## Welcome to Maths Society Platform
+
+An interactive Flask web application designed for school math societies. Students can attempt challenges, track progress on leaderboards, compete in timed competitions, and read educational articles and newsletters. Administrators have full control through a powerful admin panel.
+
+<CardGroup cols={2}>
+  <Card
+    title="Interactive Challenges"
+    icon="puzzle-piece"
+    href="/features/challenges"
+  >
+    Students can attempt math challenges with MathLive input support and scheduled release times
+  </Card>
+  <Card
+    title="Summer Competition Mode"
+    icon="trophy"
+    href="/features/summer-competition"
+  >
+    Timed competitions with locked challenges and real-time leaderboard tracking
+  </Card>
+  <Card
+    title="Leaderboards & Stats"
+    icon="chart-line"
+    href="/features/leaderboards"
+  >
+    Track student progress, rankings, and performance statistics across challenges
+  </Card>
+  <Card
+    title="Articles & Newsletters"
+    icon="newspaper"
+    href="/features/articles-newsletters"
+  >
+    Rich content creation with CKEditor support and PDF-friendly file uploads
+  </Card>
+</CardGroup>
+
+## Core Features
+
+<AccordionGroup>
+  <Accordion title="Authentication & User Management" icon="user">
+    Complete user authentication system with role-based access control:
+    - Student accounts with profile management
+    - Admin accounts with elevated privileges
+    - Secure password handling with Werkzeug
+    - Flask-Login session management
+  </Accordion>
+
+  <Accordion title="Challenge System" icon="brain">
+    Flexible challenge management with advanced features:
+    - MathLive input for mathematical expressions
+    - Scheduled release times for challenges
+    - Automatic answer validation
+    - Support for various difficulty levels
+    - Track student attempts and progress
+  </Accordion>
+
+  <Accordion title="Admin Panel" icon="gear">
+    Comprehensive admin dashboard for managing the platform:
+    - User management (create, edit, delete users)
+    - Challenge creation and editing
+    - Article and newsletter management
+    - Competition scheduling and monitoring
+    - Platform analytics and statistics
+  </Accordion>
+
+  <Accordion title="Content Management" icon="file-lines">
+    Rich content creation capabilities:
+    - CKEditor integration for WYSIWYG editing
+    - File upload system for PDFs and images
+    - Newsletter publishing system
+    - Article categorization and tagging
+  </Accordion>
+</AccordionGroup>
+
+## Technology Stack
+
+The Maths Society Platform is built with modern, reliable technologies:
+
+<CardGroup cols={3}>
+  <Card title="Flask 2.1" icon="flask">
+    Python web framework with application factory pattern
+  </Card>
+  <Card title="SQLAlchemy" icon="database">
+    ORM with PostgreSQL support and migrations via Alembic
+  </Card>
+  <Card title="Flask-Login" icon="key">
+    User session management and authentication
+  </Card>
+  <Card title="WTForms" icon="square-check">
+    Form validation and CSRF protection
+  </Card>
+  <Card title="CKEditor" icon="pen-to-square">
+    Rich text editor for content creation
+  </Card>
+  <Card title="Flask-Migrate" icon="rotate">
+    Database migrations with Alembic
+  </Card>
+</CardGroup>
+
+## Architecture Highlights
+
+The platform follows Flask best practices with a modular blueprint-based architecture:
+
+```python
+app/
+    admin/        # Admin routes, forms, templates
+    auth/         # Authentication routes & forms
+    main/         # Public routes
+    profile/      # Profile routes & forms
+    static/
+        css/      # Modular CSS organization
+        images/
+        uploads/  # User-uploaded files
+    templates/    # Jinja2 templates
+```
+
+<Note>
+  The platform uses an **application factory pattern** (`create_app`) which enables flexible configuration across development, testing, and production environments.
+</Note>
+
+## Security Features
+
+Built with security in mind:
+
+- **Flask-Talisman** for HTTPS enforcement and security headers
+- **Content Security Policy (CSP)** configured for production
+- **CSRF Protection** via Flask-WTF
+- **Rate Limiting** with Flask-Limiter (200/day, 50/hour default)
+- **Profanity Filtering** for user-generated content
+- **SQL Injection Protection** through SQLAlchemy ORM
+- **ProxyFix** middleware for proper header handling behind reverse proxies
+
+## Who is this for?
+
+<CardGroup cols={2}>
+  <Card title="School Math Societies" icon="school">
+    Perfect for educational institutions running math clubs and competitions
+  </Card>
+  <Card title="Competition Organizers" icon="calendar-days">
+    Ideal for hosting timed math competitions and challenges
+  </Card>
+  <Card title="Educators" icon="chalkboard-user">
+    Great for teachers who want to engage students with interactive content
+  </Card>
+  <Card title="Student Groups" icon="user-group">
+    Suitable for student-run organizations promoting mathematical learning
+  </Card>
+</CardGroup>
+
+## Getting Started
+
+Ready to dive in? Check out our quickstart guide to get your platform up and running in minutes:
+
+<Card
+  title="Quickstart Guide"
+  icon="rocket"
+  href="/quickstart"
+>
+  Get from clone to running application in under 5 minutes
+</Card>
+
+Or explore the detailed installation instructions for production deployment:
+
+<Card
+  title="Installation Guide"
+  icon="download"
+  href="/installation"
+>
+  Comprehensive setup guide for development and production environments
+</Card>
+
+## Open Source
+
+The Maths Society Platform is open source and available under the MIT license. Contributions are welcome!
+
+<Info>
+  Originally developed for Upton Court Grammar School's Maths Society, this platform is now available for any educational institution to use and customize.
+</Info>

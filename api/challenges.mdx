@@ -1,0 +1,226 @@
+---
+title: 'Challenge Routes'
+description: 'Challenge viewing and submission endpoints'
+---
+
+## Overview
+
+Challenge routes handle listing, viewing, and submitting answers to math challenges. Routes are filtered based on user account type (regular vs competition participants).
+
+---
+
+## List Challenges
+
+<ParamField path="/challenges" type="GET">
+  List all challenges with pagination
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/challenges")
+```
+
+**Authentication:** Required (redirects to login if not authenticated)
+
+**Query Parameters:**
+
+<ParamField query="page" type="integer" default="1">
+  Current page number for pagination
+</ParamField>
+
+**Filtering Logic:**
+- **Admin users:** See ALL challenges (regular + summer, including unreleased)
+- **Summer competition participants:** Only see summer challenges for their key stage
+- **Regular users:** Only see released regular challenges (where `release_at <= now`)
+- **Unauthenticated users:** Redirected to login
+
+**Returns:**
+- Rendered `main/challenges.html` template
+- Pagination: 6 challenges per page
+
+---
+
+## View Challenge
+
+<ParamField path="/challenges/:challenge_id" type="GET | POST">
+  Display a specific challenge and handle answer submissions
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/challenges/<int:challenge_id>", methods=["GET", "POST"])
+```
+
+**Authentication:** Required
+
+**Path Parameters:**
+
+<ParamField path="challenge_id" type="integer" required>
+  ID of the challenge to view
+</ParamField>
+
+**Access Control:**
+- Summer competition participants (except admins) cannot access regular challenges
+- Non-admin users cannot view unreleased challenges (where `release_at > now`)
+- Locked challenges display but don't accept submissions (except from admins)
+
+**GET Request:**
+Returns challenge details with:
+- Challenge content and metadata
+- Answer boxes and forms
+- User's previous submissions per answer box
+- Completion status (`all_correct`)
+- Remaining attempts per box (max 3)
+
+**POST Request (Submission):**
+
+<ParamField body="answer_box_id" type="integer" required>
+  ID of the answer box being answered
+</ParamField>
+
+<ParamField body="answer" type="string" required>
+  User's submitted answer
+</ParamField>
+
+**Submission Logic:**
+1. Validates form and checks if challenge is locked
+2. Checks if user already has correct submission for this box
+3. Creates new `AnswerSubmission` record
+4. Checks answer correctness via `answer_box.check_answer()`
+5. If all boxes correct and first to complete:
+   - Awards 3 points to leaderboard
+   - Updates `challenge.first_correct_submission` timestamp
+6. If all boxes correct but not first: Awards 1 point
+7. Partial completion: No points, encouragement message
+
+**Returns:**
+- GET: Rendered `main/challenge.html` template
+- POST: Redirects back to challenge page with flash message
+
+---
+
+## View Autumn Challenge
+
+<ParamField path="/autumn_challenge/:challenge_id" type="GET | POST">
+  Display summer competition challenge and handle submissions
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/autumn_challenge/<int:challenge_id>", methods=["GET", "POST"])
+```
+
+**Authentication:** Required
+
+**Path Parameters:**
+
+<ParamField path="challenge_id" type="integer" required>
+  ID of the summer challenge to view
+</ParamField>
+
+**Access Control:**
+- Only summer competition participants and admins can access
+- User's key stage must match challenge key stage (except admins)
+- Challenge must not be locked for submissions
+
+**GET Request:**
+Returns summer challenge details with:
+- Challenge content specific to user's key stage
+- Answer boxes and submission forms
+- User's previous submissions (from `SummerSubmission` model)
+- Completion status
+- `can_submit` flag based on permissions
+
+**POST Request (Submission):**
+
+<ParamField body="answer_box_id" type="integer" required>
+  ID of the summer challenge answer box
+</ParamField>
+
+<ParamField body="answer" type="string" required>
+  User's submitted answer
+</ParamField>
+
+**Submission Logic:**
+1. Checks submission count (max 3 attempts per box)
+2. Validates answer against `SummerChallengeAnswerBox.check_answer()`
+3. Calculates points:
+   - First to complete entire challenge: 3 points
+   - Others who complete: 1 point
+   - Partial completion: 0 points
+4. Creates `SummerSubmission` with `points_awarded`
+5. Updates `SummerLeaderboard` if points awarded
+
+**Returns:**
+- GET: Rendered `main/summer_challenge.html` template
+- POST: Redirects back to challenge with flash message
+
+---
+
+## About Page
+
+<ParamField path="/about" type="GET">
+  Display general about page
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/about")
+```
+
+**Authentication:** None required
+
+**Returns:** Rendered `main/about.html` template
+
+---
+
+## Autumn Competition About
+
+<ParamField path="/autumn_about" type="GET">
+  Display autumn competition about page
+</ParamField>
+
+**Route Decorator:**
+```python
+@bp.route("/autumn_about")
+```
+
+**Authentication:** None required
+
+**Returns:** Rendered `main/summer_about.html` template with competition information
+
+---
+
+## Challenge Submission Flow
+
+### Regular Challenges
+1. User submits answer to answer box
+2. System checks if max attempts (3) exceeded
+3. Answer validated and `AnswerSubmission` created
+4. If all boxes correct:
+   - Check if first to complete challenge
+   - Award 3 points (first) or 1 point (others)
+   - Update `LeaderboardEntry` for user's key stage
+5. Flash appropriate message
+
+### Summer Challenges
+1. User submits answer to summer challenge box
+2. System validates user's key stage matches challenge
+3. Checks remaining attempts (max 3 per box)
+4. `SummerSubmission` created with correctness flag
+5. Points calculated only on full challenge completion:
+   - First to complete: 3 points
+   - Subsequent completions: 1 point
+6. `SummerLeaderboard` updated with points
+7. School rankings automatically updated
+
+---
+
+## Key Stage Filtering
+
+Challenges are filtered by key stage:
+- **KS3:** Years 7-8
+- **KS4:** Years 9-11
+- **KS5:** Years 12-13
+
+Users only see challenges appropriate for their registered key stage (except admins).
